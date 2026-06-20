@@ -1,0 +1,2768 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoSOS Gestão - Clientes Supabase</title>
+<style>
+:root{
+  --bg:#0f1115;--card:#171a21;--card2:#20242d;--text:#f8fafc;--muted:#9ca3af;
+  --red:#e11d48;--green:#22c55e;--blue:#2563eb;--yellow:#f59e0b;--border:#2e3340;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+button{border:0;border-radius:10px;padding:10px 13px;cursor:pointer;font-weight:700;color:white;background:var(--red)}
+button.secondary{background:#374151} button.green{background:var(--green)} button.blue{background:var(--blue)}
+button.yellow{background:var(--yellow);color:#111827} button.small{padding:6px 9px;font-size:12px}
+input,select,textarea{width:100%;border:1px solid var(--border);background:#0b0d12;color:var(--text);border-radius:10px;padding:10px;outline:none}
+textarea{min-height:70px;resize:vertical} label{display:block;font-size:13px;color:#d1d5db;margin:10px 0 5px}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#09090b,#111827)}
+.login-box{width:100%;max-width:390px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px;box-shadow:0 20px 60px #0008}
+.logo{font-size:30px;font-weight:900}.logo span{color:var(--red)}.muted{color:var(--muted);font-size:13px}.hint{margin-top:15px;padding:12px;border:1px dashed var(--border);border-radius:12px;line-height:1.5;color:#cbd5e1}
+.app{display:none}
+.top{height:64px;display:flex;align-items:center;gap:12px;justify-content:space-between;padding:0 18px;background:#0b0d12;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+.menu-btn{font-size:22px;background:#1f2937}.brand{font-size:22px;font-weight:900}.brand span{color:var(--red)}
+.drawer{position:fixed;top:0;left:-290px;width:280px;bottom:0;background:#0b0d12;border-right:1px solid var(--border);z-index:20;padding:18px;transition:.25s;overflow:auto}
+.drawer.open{left:0}.overlay{display:none;position:fixed;inset:0;background:#0008;z-index:19}.overlay.show{display:block}
+.nav button{display:block;width:100%;text-align:left;background:transparent;border:1px solid transparent;margin:4px 0;color:#e5e7eb}
+.nav button:hover,.nav button.active{background:var(--card2);border-color:var(--border)}
+.main{padding:20px;max-width:1250px;margin:0 auto}.section{display:none}.section.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.two{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px}.card h2,.card h3{margin-top:0}
+.metric{font-size:28px;font-weight:900;margin:6px 0}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid var(--border);padding:9px;text-align:left;font-size:14px;vertical-align:top}th{background:#111827;color:#cbd5e1}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#374151;font-size:12px}.badge.green{background:#14532d;color:#bbf7d0}.badge.yellow{background:#78350f;color:#fde68a}.badge.red{background:#7f1d1d;color:#fecaca}
+.edit-box{display:none;border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:14px;background:#10131a}
+.print-os{background:white;color:#111;padding:22px;max-width:900px;margin:auto;border-radius:6px}.print-head{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:9px;margin-bottom:10px}.print-logo{width:60px;height:60px;border:2px solid #111;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#e11d48;overflow:hidden;background:#fff}.print-logo img{width:100%;height:100%;object-fit:contain}.print-title{font-size:21px;font-weight:900}.print-small{font-size:11px;line-height:1.35}.print-box{border:1px solid #111;padding:7px;margin:7px 0;border-radius:4px}.print-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:12px}.print-table th,.print-table td{color:#111;border:1px solid #111;padding:5px;font-size:12px}.print-table th{background:#f3f4f6}.sign{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:28px;font-size:12px}.line{border-top:1px solid #111;text-align:center;padding-top:5px}
+
+.dash-link{cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.dash-link:hover{transform:translateY(-2px);border-color:#4b5563;background:#1f2430}
+.dash-link:after{content:'Clique para abrir';display:block;color:var(--muted);font-size:12px;margin-top:6px;font-weight:700}
+.quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mobile-bottom{display:none}
+.contact-pro{border:1px solid #1d4ed8;background:#101827}
+@media(min-width:851px){.top{height:70px}.drawer{left:0}.overlay{display:none!important}.main{margin-left:280px;max-width:none;padding:24px}.menu-btn{display:none}.app.pc-mode .main{max-width:1280px}.card{box-shadow:0 10px 22px #0002}.grid{grid-template-columns:repeat(4,minmax(170px,1fr))}}
+@media(max-width:850px){body{padding-bottom:72px}.main{padding:14px}.top{height:58px;padding:0 12px}.brand{font-size:19px}.logo{font-size:28px}.card{border-radius:14px;padding:14px}.metric{font-size:24px}.quick-actions{grid-template-columns:1fr 1fr}.mobile-bottom{display:flex;position:fixed;bottom:0;left:0;right:0;height:64px;background:#0b0d12;border-top:1px solid var(--border);z-index:18;justify-content:space-around;align-items:center}.mobile-bottom button{background:transparent;color:#e5e7eb;font-size:11px;padding:6px 4px;border-radius:8px;min-width:58px}.mobile-bottom b{display:block;font-size:18px;line-height:18px}.drawer{width:82%;left:-84%}table{display:block;overflow-x:auto;white-space:nowrap}th,td{font-size:13px}.row button{flex:1}.grid{grid-template-columns:1fr 1fr;gap:10px}.dash-link:after{content:'Toque para abrir'}}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.quick-actions{grid-template-columns:1fr}.login-box{padding:20px}.card h2{font-size:18px}.card h3{font-size:16px}}
+
+@media(max-width:850px){.grid,.two,.three{grid-template-columns:1fr}.top input{display:none}}
+/* V13 - visual mais profissional e responsivo */
+body{background:radial-gradient(circle at top left,#172033 0,#0f1115 42%,#090b10 100%)}
+.login{background:radial-gradient(circle at top left,#26334d,#0b0d12 54%,#05060a);padding:18px}
+.login-box{max-width:980px;display:grid;grid-template-columns:1.05fr .95fr;gap:0;padding:0;overflow:hidden;border-radius:26px;background:rgba(23,26,33,.92);backdrop-filter:blur(12px)}
+.login-hero{padding:32px;background:linear-gradient(145deg,#111827,#171a21 55%,#250814);border-right:1px solid var(--border)}
+.login-form{padding:32px}.login-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:24px}.login-kpis div{background:#0b0d12;border:1px solid var(--border);border-radius:16px;padding:12px}.login-kpis b{display:block;font-size:22px}.login-note{background:#0b0d12;border:1px solid var(--border);border-radius:16px;padding:14px;margin-top:18px;line-height:1.45;color:#cbd5e1}
+.page-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}.page-title h1{margin:0}.page-title .muted{font-size:13px}.card{background:linear-gradient(180deg,rgba(31,36,48,.94),rgba(20,23,31,.96));border-color:#303746}.top{background:rgba(11,13,18,.9);backdrop-filter:blur(10px)}.drawer{background:linear-gradient(180deg,#0b0d12,#111827)}
+.dash-link{min-height:118px;display:flex;flex-direction:column;justify-content:space-between}.dash-link .muted{font-weight:700;letter-spacing:.2px}.metric{letter-spacing:-.5px}.section h1{letter-spacing:-.6px}.finance-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.finance-actions>div{flex:1;min-width:170px}.finance-actions .btn-cell{flex:0 0 auto;min-width:180px}.device-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:12px 0}.device-summary .card{margin-bottom:0}.device-pill{display:inline-block;padding:5px 9px;border-radius:999px;background:#111827;border:1px solid var(--border);font-size:12px;color:#cbd5e1}
+@media(max-width:850px){.login-box{display:block;max-width:430px}.login-hero{padding:22px;border-right:0;border-bottom:1px solid var(--border)}.login-form{padding:22px}.login-kpis{grid-template-columns:1fr 1fr 1fr}.page-title{display:block}.finance-actions{display:block}.finance-actions .btn-cell{min-width:0}.device-summary{grid-template-columns:1fr}.dash-link{min-height:auto}.main{max-width:100%;overflow:hidden}.card{width:100%}input,select,textarea,button{font-size:15px}}
+@media(min-width:851px){.section{max-width:1180px}.dashboard-grid-pro{grid-template-columns:repeat(4,minmax(180px,1fr))}.login .logo{font-size:42px}}
+
+
+/* V14 - ajustes de encaixe mobile e layout profissional */
+.simple-login{width:100%;max-width:390px!important;display:block!important;padding:26px!important;border-radius:18px!important;background:var(--card)!important;backdrop-filter:none!important}
+@media(max-width:850px){
+  .main{overflow:visible!important;padding:12px!important}
+  .section{max-width:100%;overflow:visible}
+  .card{overflow:hidden}
+  table{display:block!important;width:100%!important;max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch;white-space:nowrap;border:1px solid var(--border);border-radius:12px;background:#0b0d12}
+  table tbody, table tr{width:max-content}
+  th,td{font-size:12px!important;padding:8px!important;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  td .small, td button.small{margin:2px;white-space:nowrap}
+  .two.form-first{display:flex!important;flex-direction:column!important}
+  .two.form-first .form-card{order:1}
+  .two.form-first .list-card{order:2}
+}
+@media(min-width:851px){
+  .two.form-first{display:grid;grid-template-columns:1fr;gap:14px}
+  .two.form-first .form-card{order:1}
+  .two.form-first .list-card{order:2}
+  .two.form-first .form-card .three{grid-template-columns:repeat(3,1fr)}
+}
+
+
+/* V15 - regras de planos e bloqueios */
+.plan-locked{padding:18px;border:1px dashed #4b5563;border-radius:16px;background:#10131a;color:#cbd5e1;margin:12px 0}
+.plan-locked b{color:#fff}.plan-tag{display:inline-block;padding:6px 10px;border-radius:999px;background:#111827;border:1px solid var(--border);font-size:12px;color:#cbd5e1;margin-bottom:8px}
+#placaAutoBox.locked{display:none!important}
+.manual-note{font-size:12px;color:#9ca3af;margin-top:8px}
+
+
+/* V16 - clientes em largura total no PC e tela caixa */
+.caixa-card{max-width:900px}
+.caixa-total{font-size:34px;font-weight:900;margin:8px 0 12px;letter-spacing:-.7px}
+.caixa-ok{border-color:#14532d;background:#0f1f17}
+@media(min-width:851px){
+  .clientes-layout{display:grid!important;grid-template-columns:1fr!important;gap:14px!important}
+  .cliente-form-card,.cliente-list-card{width:100%}
+  .cliente-form-card{padding:22px}
+  .cliente-form-card label{margin-top:12px}
+}
+
+
+/* V18 - Caixa isolado e ADM com acesso total */
+body.caixa-mode #globalSearch{display:none!important}
+body.caixa-mode .drawer{display:none!important}
+body.caixa-mode .overlay{display:none!important}
+body.caixa-mode .menu-btn{display:none!important}
+body.caixa-mode .top{justify-content:center}
+body.caixa-mode .main{margin-left:auto!important;max-width:980px!important}
+body.caixa-mode .mobile-bottom{display:none!important}
+@media(min-width:851px){body.caixa-mode .main{padding:24px!important}}
+
+
+/* Ajuste V: edição de O.S. em janela sobreposta */
+#editOSBox{
+  position:fixed!important;
+  top:24px!important;left:50%!important;transform:translateX(-50%)!important;
+  width:min(1120px,calc(100vw - 28px))!important;
+  max-height:calc(100vh - 48px)!important;
+  overflow:auto!important;
+  z-index:120!important;
+  box-shadow:0 30px 90px #000c!important;
+  border:1px solid #4b5563!important;
+}
+#editOSBox::before{content:'';position:fixed;inset:-200vh -200vw;background:#0009;z-index:-1;}
+#editOSBox .os-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+
+
+/* Usuários internos e primeiro acesso */
+.first-access-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;padding:20px}
+.first-access-overlay.show{display:flex}
+.first-access-box{width:100%;max-width:460px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 20px 70px #000}
+.first-access-box h2{margin-top:0}
+.user-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+@media print{body{background:white}.top,.drawer,.overlay,.no-print,.section:not(.printable){display:none!important}.main{padding:0;max-width:none}.print-os{max-width:none;border-radius:0}}
+</style>
+</head>
+<body>
+
+<div id="login" class="login">
+  <div class="login-box simple-login">
+    <div class="logo">Moto<span>SOS</span></div>
+    <label>Usuário</label><input id="loginUser" placeholder="Digite seu usuário">
+    <label>Senha</label><input id="loginPass" type="password" placeholder="Digite sua senha">
+    <div class="row"><button onclick="login()" style="width:100%;padding:13px">Entrar</button></div>
+  </div>
+</div>
+
+<div id="app" class="app pc-mode">
+  <div id="overlay" class="overlay" onclick="toggleMenu(false)"></div>
+  <aside id="drawer" class="drawer">
+    <div class="brand">Moto<span>SOS</span></div>
+    <p class="muted">Usuário: <b id="currentUser"></b><br>Perfil: <b id="currentRole"></b><br>Plano: <b id="currentPlan"></b></p>
+    <div id="nav" class="nav"></div>
+    <div class="row"><button class="secondary" onclick="logout()">Sair</button></div>
+  </aside>
+
+  <header class="top no-print">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="menu-btn" onclick="toggleMenu(true)">☰</button>
+      <div class="brand">Moto<span>SOS</span></div>
+    </div>
+    <input id="globalSearch" placeholder="Pesquisar cliente, telefone, placa, O.S..." oninput="globalSearch()" style="max-width:440px">
+  </header>
+  <nav id="mobileBottom" class="mobile-bottom no-print"></nav>
+
+  <main class="main">
+    <section id="dashboard" class="section active">
+      <div class="page-title"><div><h1>Dashboard</h1>
+      <div id="planAccessInfo" class="plan-tag"></div><p class="muted">Resumo rápido da oficina, com atalhos clicáveis.</p></div><span class="device-pill">Modo responsivo: celular + PC</span></div>
+      <div class="grid dashboard-grid-pro">
+        <div class="card dash-link" onclick="showSection('os')"><div class="muted">O.S. abertas</div><div id="mOs" class="metric">0</div></div>
+        <div class="card dash-link" onclick="showSection('vendas')"><div class="muted">Vendas</div><div id="mVendas" class="metric">0</div></div>
+        <div class="card dash-link" onclick="showSection('clientes')"><div class="muted">Clientes</div><div id="mClientes" class="metric">0</div></div>
+        <div class="card dash-link" onclick="showSection('motos')"><div class="muted">Motos</div><div id="mMotos" class="metric">0</div></div>
+      </div>
+      <div class="card no-print">
+        <h3>Acesso rápido</h3>
+        <div class="quick-actions">
+          <button onclick="showSection('os')">Abrir O.S.</button>
+          <button class="blue" onclick="showSection('vendas')">Nova venda</button>
+          <button class="green" onclick="showSection('clientes')">Cadastrar cliente</button>
+          <button class="secondary" onclick="showSection('financeiro')">Financeiro</button>
+        </div>
+      </div>
+      <div class="card"><h3>Pesquisa global</h3><div id="searchResults" class="muted">Digite na barra superior para pesquisar.</div></div>
+    </section>
+
+    <section id="clientes" class="section">
+      <h1>Clientes</h1>
+      <div class="two form-first clientes-layout">
+        <div class="card form-card cliente-form-card">
+          <h2>Novo cliente completo</h2>
+          <p class="muted">Cadastro completo para O.S., venda e nota fiscal.</p>
+          <label>Nome</label><input id="clienteNome">
+          <label>Telefone</label><input id="clienteTelefone">
+          <label>CPF/CNPJ</label><input id="clienteDoc">
+          <label>E-mail</label><input id="clienteEmail">
+          <label>CEP</label><input id="clienteCep" onblur="buscarCep('novo')" placeholder="Digite o CEP e clique fora">
+          <label>Endereço</label><input id="clienteEndereco">
+          <label>Número</label><input id="clienteNumero">
+          <label>Bairro</label><input id="clienteBairro">
+          <label>Cidade</label><input id="clienteCidade">
+          <label>Estado</label><input id="clienteEstado">
+          <div class="row"><button onclick="addCliente()">Salvar cliente</button></div>
+        </div>
+        <div class="card list-card cliente-list-card">
+          <h2>Clientes cadastrados</h2>
+          <table id="clientesTable"></table>
+          <div id="editClienteBox" class="edit-box">
+            <h3>Editar cliente</h3>
+            <input type="hidden" id="editClienteId">
+            <label>Nome</label><input id="editClienteNome">
+            <label>Telefone</label><input id="editClienteTelefone">
+            <label>CPF/CNPJ</label><input id="editClienteDoc">
+            <label>E-mail</label><input id="editClienteEmail">
+            <label>CEP</label><input id="editClienteCep" onblur="buscarCep('edit')">
+            <label>Endereço</label><input id="editClienteEndereco">
+            <label>Número</label><input id="editClienteNumero">
+            <label>Bairro</label><input id="editClienteBairro">
+            <label>Cidade</label><input id="editClienteCidade">
+            <label>Estado</label><input id="editClienteEstado">
+            <div class="row">
+              <button class="green" onclick="saveClienteEdit()">Salvar alteração</button>
+              <button class="secondary" onclick="cancelClienteEdit()">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="motos" class="section">
+      <h1>Motos</h1>
+      <div class="two form-first">
+        <div class="card form-card">
+          <h2>Registrar moto</h2>
+          <label>Placa</label>
+          <input id="motoPlaca" placeholder="Digite a placa da moto" onblur="puxarDadosMotoPorPlaca()">
+          <div class="row" id="placaAutoBox">
+            <button class="blue" onclick="puxarDadosMotoPorPlaca()">Puxar dados da placa</button>
+          </div>
+          <div id="placaManualNote" class="manual-note"></div>
+          <label>Marca</label><input id="motoMarca" readonly placeholder="Preenchido pela placa">
+          <label>Modelo</label><input id="motoModelo" readonly placeholder="Preenchido pela placa">
+          <label>Cor</label><input id="motoCor" readonly placeholder="Preenchido pela placa">
+          <label>Ano</label><input id="motoAno" readonly placeholder="Preenchido pela placa">
+          <label>Cliente</label><select id="motoCliente"></select>
+          <p class="muted">No protótipo, a consulta de placa é simulada. No sistema real, aqui entra uma API de consulta veicular.</p>
+          <div class="row"><button onclick="addMoto()">Salvar moto</button></div>
+        </div>
+        <div class="card list-card"><h2>Motos cadastradas</h2><table id="motosTable"></table></div>
+      </div>
+    </section>
+
+    <section id="os" class="section">
+      <h1>Ordem de Serviço</h1>
+      <div class="two form-first">
+        <div class="card list-card">
+          <h2>O.S. criadas</h2>
+          <table id="osTable"></table>
+          <div id="editOSBox" class="edit-box">
+            <div class="os-modal-head"><h3 id="editOSTitle">Editar O.S.</h3><button class="secondary small" onclick="cancelOSEdit()">Fechar</button></div>
+            <input type="hidden" id="editOSId">
+            <label>Status no app</label>
+            <select id="editOSStatus"><option>Aberta</option><option>Em orçamento</option><option>Aguardando aprovação</option><option>Em execução</option><option>Finalizada</option><option>Entregue</option></select>
+            <h3>Adicionar peça</h3>
+            <div class="three">
+              <div><label>Peça do estoque</label><select id="osPecaSelect"></select></div>
+              <div><label>Qtd</label><input id="osPecaQtd" type="number" value="1"></div>
+              <div><label>&nbsp;</label><button class="blue" onclick="addPecaToOS()">Adicionar peça</button></div>
+            </div>
+            <h3>Mão de obra</h3>
+            <div class="three">
+              <div><label>Mecânico</label><select id="osMecanico"></select></div>
+              <div><label>Descrição</label><input id="osMaoDesc" placeholder="Troca de relação"></div>
+              <div><label>Valor</label><input id="osMaoValor" type="number" step="0.01" value="0"></div>
+            </div>
+            <div class="row"><button class="blue" onclick="addMaoToOS()">Adicionar mão de obra</button></div>
+            <h3>Itens da O.S.</h3>
+            <div id="osItensResumo" class="muted"></div>
+            <div class="row">
+              <button class="green" onclick="saveOSEdit()">Salvar</button>
+              <button class="secondary" onclick="cancelOSEdit()">Cancelar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card form-card">
+          <h2>Criar O.S. por placa</h2>
+          <label>Placa da moto</label>
+          <input id="osBuscaPlaca" placeholder="Digite a placa" oninput="buscarMotoPorPlaca()">
+          <div id="osDadosEncontrados" class="hint">Digite uma placa já cadastrada para puxar cliente e moto automaticamente.</div>
+          <input type="hidden" id="osCliente">
+          <input type="hidden" id="osMoto">
+          <label>Vendedor que abriu a O.S.</label><select id="osVendedor"></select>
+          <label>Problema relatado</label><textarea id="osProblema"></textarea>
+          <label>Status no app</label><select id="osStatus"><option>Aberta</option><option>Em orçamento</option><option>Aguardando aprovação</option><option>Em execução</option></select>
+          <div class="row"><button onclick="addOS()">Criar O.S.</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="orcamentos" class="section">
+      <h1>Orçamentos / Aguardando aprovação</h1>
+      <div class="card">
+        <p class="muted">Aqui aparecem automaticamente as O.S. marcadas como <b>Aguardando aprovação</b>.</p>
+        <table id="orcamentosTable"></table>
+      </div>
+    </section>
+
+    <section id="vendas" class="section">
+      <h1>Vendas</h1>
+      <div class="two form-first">
+        <div class="card list-card"><h2>Vendas/Orçamentos</h2><table id="vendasTable"></table></div>
+        <div class="card form-card">
+          <h2>Nova venda</h2>
+          <input type="hidden" id="vendaTipo" value="Venda balcão">
+          <label>Cliente</label><select id="vendaCliente"></select>
+          <label>Vendedor responsável</label><select id="vendaVendedor"></select>
+          <label>Produto do estoque</label><select id="vendaProduto"></select>
+          <label>Quantidade</label><input id="vendaQtd" type="number" value="1">
+          <p class="muted">Venda balcão baixa estoque automaticamente, mas o pagamento, a forma de pagamento e a emissão da NF serão feitos no <b>Caixa</b>.</p>
+          <div class="row"><button onclick="addVenda()">Salvar</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="estoque" class="section admin">
+      <h1>Estoque</h1>
+      <div class="card">
+        <h2>Novo produto</h2>
+        <input type="hidden" id="estoqueEditId">
+        <div class="three">
+          <div><label>Código automático</label><input id="estoqueCodigo" readonly placeholder="00000000001"></div>
+          <div><label>Produto</label><input id="estoqueProduto" placeholder="Óleo 10W30"></div>
+          <div><label>Quantidade</label><input id="estoqueQtd" type="number" placeholder="Quantidade"></div>
+        </div>
+        <div class="three">
+          <div><label>Custo em R$</label><input id="estoqueCusto" type="number" step="0.01" placeholder="0,00" oninput="calcularMargemEstoque()"></div>
+          <div><label>Valor de venda em R$</label><input id="estoqueVenda" type="number" step="0.01" placeholder="0,00" oninput="calcularMargemEstoque()"></div>
+          <div><label>Lucro sobre o custo</label><input id="estoqueMargem" readonly placeholder="0%"></div>
+        </div>
+        <label>Fornecedor</label><input id="estoqueFornecedor">
+        <div class="row">
+          <button onclick="addEstoque()">Adicionar/Atualizar produto</button>
+          <button class="secondary" onclick="cancelEstoqueEdit()">Cancelar edição</button>
+        </div>
+        <table id="estoqueTable"></table>
+      </div>
+    </section>
+
+    <section id="financeiro" class="section admin">
+      <div class="page-title"><div><h1>Financeiro</h1><p class="muted">Controle do caixa, entradas, saídas e relatório em Excel.</p></div></div>
+      <div class="card">
+        <h2>Buscar por período</h2>
+        <div class="finance-actions">
+          <div><label>Data inicial</label><input id="finInicio" type="date" onchange="renderAll()"></div>
+          <div><label>Data final</label><input id="finFim" type="date" onchange="renderAll()"></div>
+          <div class="btn-cell"><label>&nbsp;</label><button class="secondary" onclick="limparFiltroFinanceiro()">Limpar filtro</button></div>
+          <div class="btn-cell"><label>&nbsp;</label><button class="green" onclick="exportarFinanceiroExcel()">Exportar Excel</button></div>
+        </div>
+        <p class="muted">Exporta O.S. concluídas, valores recebidos, saídas e total bruto do período selecionado.</p>
+      </div>
+      <div class="grid">
+        <div class="card"><div class="muted">Total de tudo vendido</div><div id="finGeralTotal" class="metric">R$ 0,00</div></div>
+        <div class="card"><div class="muted">O.S. abertas</div><div id="finOsAbertasTotal" class="metric">R$ 0,00</div></div>
+        <div class="card"><div class="muted">Entradas manuais</div><div id="finEntradasTotal" class="metric">R$ 0,00</div></div>
+        <div class="card"><div class="muted">Saídas em cédula/caixa</div><div id="finSaidasTotal" class="metric">R$ 0,00</div></div>
+      </div>
+      <div class="card">
+        <h2>Entradas e saídas manuais</h2>
+        <p class="muted">Use entrada manual para pagamentos em dinheiro. Use saída quando retirar cédula do caixa para comprar algo.</p>
+        <div class="three">
+          <div><label>Tipo</label><select id="finTipo"><option>Entrada</option><option>Saída</option></select></div>
+          <div><label>Descrição</label><input id="finDesc"></div>
+          <div><label>Valor</label><input id="finValor" type="number" step="0.01" value="0"></div>
+        </div>
+        <div class="row"><button onclick="addFinanceiro()">Lançar</button></div>
+        <h2>Movimentações do período</h2>
+        <table id="financeiroTable"></table>
+      </div>
+    </section>
+
+    <section id="funcionarios" class="section admin">
+      <h1>Funcionários</h1>
+      <div class="card">
+        <h2 id="funcFormTitle">Cadastro de funcionário</h2>
+        <input type="hidden" id="funcEditId">
+        <div class="three">
+          <div><label>Nome</label><input id="funcNome"></div>
+          <div><label>CPF</label><input id="funcCpf"></div>
+          <div><label>Telefone</label><input id="funcTelefone"></div>
+        </div>
+        <div class="three">
+          <div>
+            <label>Cargo</label>
+            <select id="funcCargo">
+              <option>Auxiliar Mecânico I</option>
+              <option>Auxiliar Mecânico II</option>
+              <option>Auxiliar Mecânico III</option>
+              <option>Mecânico I</option>
+              <option>Mecânico II</option>
+              <option>Mecânico III</option>
+              <option>Chefe de Oficina</option>
+              <option>Atendente</option>
+              <option>Caixa</option>
+            </select>
+          </div>
+          <div><label>Salário</label><input id="funcSalario" type="number" step="0.01" value="0"></div>
+          <div><label>Comissão %</label><input id="funcComissao" type="number" step="0.01" value="0"></div>
+        </div>
+        <div class="three">
+          <div><label>Data de admissão</label><input id="funcDataAdmissao" type="date"></div>
+          <div><label>Status</label><select id="funcStatus"><option>Ativo</option><option>Inativo</option></select></div>
+          <div><label>&nbsp;</label><button onclick="saveFuncionario()">Salvar funcionário</button></div>
+        </div>
+        <div class="row"><button class="secondary" onclick="cancelFuncEdit()">Cancelar edição</button></div>
+      </div>
+      <div class="card">
+        <h2>Funcionários cadastrados</h2>
+        <p class="muted">Funcionários ficam vinculados à oficina logada. Mecânicos ativos aparecem na O.S.; atendentes e caixas aparecem nos fluxos operacionais.</p>
+        <table id="funcTable"></table>
+      </div>
+    </section>
+
+    <section id="relatorios" class="section admin">
+      <div class="page-title">
+        <div>
+          <h1>Relatórios</h1>
+          <p class="muted">Resumo operacional e financeiro da oficina por período.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Filtros</h2>
+        <div class="finance-actions">
+          <div><label>Data inicial</label><input id="relInicio" type="date" onchange="renderAll()"></div>
+          <div><label>Data final</label><input id="relFim" type="date" onchange="renderAll()"></div>
+          <div class="btn-cell"><label>&nbsp;</label><button class="secondary" onclick="limparFiltroRelatorios()">Limpar filtro</button></div>
+          <div class="btn-cell"><label>&nbsp;</label><button class="green" onclick="exportarRelatoriosExcel()">Exportar Excel</button></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card"><div class="muted">Faturamento do período</div><div id="relFaturamento" class="metric">R$ 0,00</div></div>
+        <div class="card"><div class="muted">Saldo do caixa</div><div id="relSaldoCaixa" class="metric">R$ 0,00</div></div>
+        <div class="card"><div class="muted">Vendas realizadas</div><div id="relQtdVendas" class="metric">0</div></div>
+        <div class="card"><div class="muted">O.S. abertas</div><div id="relOsAbertas" class="metric">0</div></div>
+      </div>
+
+      <div class="grid">
+        <div class="card"><div class="muted">Clientes cadastrados</div><div id="relQtdClientes" class="metric">0</div></div>
+        <div class="card"><div class="muted">Motos cadastradas</div><div id="relQtdMotos" class="metric">0</div></div>
+        <div class="card"><div class="muted">Produtos em estoque</div><div id="relProdutosEstoque" class="metric">0</div></div>
+        <div class="card"><div class="muted">Valor estimado do estoque</div><div id="relValorEstoque" class="metric">R$ 0,00</div></div>
+      </div>
+
+      <div class="two">
+        <div class="card">
+          <h2>Produtos mais vendidos</h2>
+          <table id="relProdutosTable"></table>
+        </div>
+        <div class="card">
+          <h2>Resumo financeiro</h2>
+          <table id="relFinanceiroTable"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Últimas vendas</h2>
+        <table id="relVendasTable"></table>
+      </div>
+
+      <div class="card">
+        <h2>Ordens de Serviço</h2>
+        <table id="relOsTable"></table>
+      </div>
+    </section>
+
+    <section id="usuarios" class="section admin">
+      <h1>Usuários da oficina</h1>
+      <div class="card">
+        <h2>Criar ou editar acesso</h2>
+        <p class="muted">O ADM da oficina pode criar e alterar os usuários internos da mesma oficina. Perfis disponíveis: ADM, Caixa e Atendente.</p>
+        <input type="hidden" id="usuarioSistemaId">
+        <div class="three">
+          <div><label>Nome</label><input id="usuarioSistemaNome" placeholder="Ex.: João"></div>
+          <div><label>Login</label><input id="usuarioSistemaEmail" placeholder="Ex.: caixa95"></div>
+          <div><label>Senha</label><input id="usuarioSistemaSenha" placeholder="Senha provisória"></div>
+        </div>
+        <div class="three">
+          <div>
+            <label>Perfil</label>
+            <select id="usuarioSistemaPerfil">
+              <option value="adm">ADM</option>
+              <option value="caixa">Caixa</option>
+              <option value="atendente">Atendente</option>
+            </select>
+          </div>
+          <div>
+            <label>Status</label>
+            <select id="usuarioSistemaAtivo">
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
+          </div>
+          <div><label>&nbsp;</label><button class="green" onclick="salvarUsuarioSistema()">Salvar usuário</button></div>
+        </div>
+        <div class="row">
+          <button class="secondary" onclick="limparFormUsuarioSistema()">Limpar</button>
+        </div>
+        <p class="muted">Ao criar ou redefinir senha, o usuário será obrigado a trocar login/senha no próximo acesso.</p>
+      </div>
+      <div class="card">
+        <h2>Usuários vinculados a esta oficina</h2>
+        <table id="usersTable"></table>
+      </div>
+    </section>
+
+    <section id="contatoPro" class="section admin">
+      <h1>Contato / Chamado Pro</h1>
+      <div class="card contact-pro">
+        <h2>Abrir chamado de suporte</h2>
+        <p class="muted">Disponível automaticamente no plano Pro para solicitar ajuda, correção, configuração ou melhoria.</p>
+        <label>Assunto</label><input id="chamadoAssunto" placeholder="Ex.: Erro ao salvar O.S.">
+        <label>Descrição do problema</label><textarea id="chamadoDesc" placeholder="Explique o que aconteceu e onde precisa de suporte"></textarea>
+        <label>Prioridade</label><select id="chamadoPrioridade"><option>Normal</option><option>Alta</option><option>Urgente</option></select>
+        <div class="row"><button class="blue" onclick="abrirChamadoPro()">Abrir chamado</button></div>
+      </div>
+      <div class="card"><h2>Chamados abertos</h2><table id="chamadosTable"></table></div>
+    </section>
+
+    <section id="configuracoes" class="section admin">
+      <h1>Configurações</h1>
+      <div class="card">
+        <h2>Dados da empresa</h2>
+        <div class="three">
+          <div><label>Nome</label><input id="empNome" placeholder="Pode ficar em branco"></div>
+          <div><label>CNPJ/CPF</label><input id="empDoc" placeholder="Opcional" onblur="buscarDocumentoEmpresa()"></div>
+          <div><label>Telefone</label><input id="empTel" placeholder="Opcional"></div>
+        </div>
+        <label>Endereço/localização</label><input id="empEnd" placeholder="Opcional">
+
+        <label>Logo/foto da empresa para aparecer na O.S.</label>
+        <input id="empLogoInput" type="file" accept="image/png,image/jpeg,image/jpg" onchange="salvarLogoEmpresa(event)">
+        <div id="empLogoPreview" class="hint">Nenhuma logo cadastrada.</div>
+
+        <p class="muted">CPF/CNPJ não é obrigatório. Se não preencher, o app continua funcionando normalmente. Para CNPJ, o sistema tenta puxar dados automaticamente se o navegador permitir consulta externa.</p>
+        <div class="row">
+          <button class="blue" onclick="buscarDocumentoEmpresa()">Puxar dados CPF/CNPJ</button>
+          <button onclick="saveEmpresa()">Salvar dados</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="planos" class="section">
+      <h1>Plano da oficina</h1>
+      <div class="card">
+        <h2>Plano atual</h2>
+        <p class="muted">Esta aba aparece em todos os planos. No sistema real, a mudança de plano só será aplicada após confirmação de pagamento no MotoSOS Admin.</p>
+        <div id="planoResumo" class="hint">Carregando informações do plano...</div>
+        <label>Alterar plano para teste</label>
+        <select id="planSelect" onchange="changePlan()"><option>Start</option><option>Oficina - R$ 29,90</option><option>Pro - R$ 149,90</option></select>
+        <div class="hint">
+          <b>Start:</b> Dashboard, Clientes, Motos, O.S., Vendas e Estoque.<br>
+          <b>Oficina:</b> tudo, menos Funcionários e Contato Pro.<br>
+          <b>Pro:</b> acesso total.
+        </div>
+      </div>
+    </section>
+
+    <section id="auditoria" class="section admin">
+      <h1>Auditoria</h1>
+      <div class="card"><table id="auditTable"></table></div>
+    </section>
+
+
+    <section id="caixa" class="section">
+      <div class="page-title">
+        <div>
+          <h1>Caixa</h1>
+          <p class="muted">Controle de entradas, saídas, suprimento, sangria e saldo atual da oficina.</p>
+        </div>
+        <button class="secondary no-print" onclick="logout()">Sair do caixa</button>
+      </div>
+
+      <div class="grid">
+        <div class="card"><div class="muted">Entradas do dia</div><div id="caixaEntradas" class="metric">R$ 0,00</div></div>
+        <div class="card"><div class="muted">Saídas do dia</div><div id="caixaSaidas" class="metric">R$ 0,00</div></div>
+        <div class="card"><div class="muted">Saldo do dia</div><div id="caixaSaldo" class="metric">R$ 0,00</div></div>
+        <div class="card"><div class="muted">Movimentos</div><div id="caixaMovimentos" class="metric">0</div></div>
+      </div>
+
+      <div class="card caixa-card">
+        <h2>Buscar cobrança por número</h2>
+        <p class="muted">Digite o número da venda ou da O.S. Exemplo: <b>VEND0001</b> ou <b>OS0001</b>. O caixa abre a cobrança, escolhe a forma de pagamento, imprime e emite NF.</p>
+        <div class="three">
+          <div><label>Nº da Venda ou O.S.</label><input id="caixaBuscaNumero" placeholder="VEND0001 ou OS0001" onkeydown="if(event.key==='Enter')buscarCobrancaCaixa()"></div>
+          <div><label>&nbsp;</label><button class="blue" onclick="buscarCobrancaCaixa()">Buscar cobrança</button></div>
+          <div><label>&nbsp;</label><button class="secondary" onclick="cancelarPagamentoCaixa()">Limpar</button></div>
+        </div>
+      </div>
+
+      <div class="card caixa-card">
+        <h2>Vendas e O.S. pendentes de pagamento</h2>
+        <p class="muted">Tudo que foi vendido ou finalizado em O.S. aparece aqui para o caixa receber, escolher PIX, débito, crédito ou dinheiro e emitir NF.</p>
+        <table id="caixaPendentesTable"></table>
+      </div>
+
+      <div id="caixaPagamentoBox" class="card caixa-card" style="display:none">
+        <h2>Receber no caixa</h2>
+        <input type="hidden" id="caixaPagamentoTipo">
+        <input type="hidden" id="caixaPagamentoVendaId">
+        <input type="hidden" id="caixaPagamentoOsId">
+        <div id="caixaPagamentoInfo" class="hint">Selecione uma venda pendente.</div>
+        <div class="three">
+          <div>
+            <label>Forma de pagamento</label>
+            <select id="caixaFormaPagamento">
+              <option>PIX</option>
+              <option>Dinheiro</option>
+              <option>Cartão Débito</option>
+              <option>Cartão Crédito</option>
+            </select>
+          </div>
+          <div><label>Observação</label><input id="caixaPagamentoObs" placeholder="Opcional"></div>
+          <div><label>&nbsp;</label><button class="green" onclick="finalizarVendaNoCaixa()">Confirmar pagamento e emitir NF</button></div>
+        </div>
+        <div class="row"><button class="secondary" onclick="cancelarPagamentoCaixa()">Cancelar</button></div>
+      </div>
+
+      <div class="card caixa-card">
+        <h2>Movimento manual</h2>
+        <p class="muted">Use <b>Suprimento</b> para colocar dinheiro no caixa, <b>Sangria</b> para retirada e <b>Saída</b> para despesas.</p>
+        <div class="three">
+          <div>
+            <label>Tipo</label>
+            <select id="caixaTipo">
+              <option>Suprimento</option>
+              <option>Saída</option>
+              <option>Sangria</option>
+            </select>
+          </div>
+          <div><label>Descrição</label><input id="caixaDesc" placeholder="Ex.: Compra de café, retirada do caixa..."></div>
+          <div><label>Valor</label><input id="caixaValor" type="number" step="0.01" value="0"></div>
+        </div>
+        <div class="row"><button class="blue" onclick="addCaixaManual()">Lançar no caixa</button></div>
+      </div>
+
+      <div class="card caixa-card">
+        <h2>Histórico do caixa</h2>
+        <p class="muted">Entradas de venda vêm automaticamente do financeiro. Movimentos manuais ficam salvos na tabela caixa.</p>
+        <table id="caixaTable"></table>
+      </div>
+    </section>
+
+    <section id="impressao" class="section printable">
+      <div class="row no-print"><button onclick="window.print()">Imprimir O.S.</button><button class="secondary" onclick="showSection('os')">Voltar</button></div>
+      <div id="printOS" class="print-os"></div>
+    </section>
+  </main>
+</div>
+
+<div id="firstAccessOverlay" class="first-access-overlay">
+  <div class="first-access-box">
+    <h2>Primeiro acesso</h2>
+    <p class="muted">Por segurança, altere seu login e senha antes de continuar usando o MotoSOS Gestão.</p>
+    <label>Novo login</label><input id="primeiroLoginNovo" placeholder="Novo login">
+    <label>Nova senha</label><input id="primeiraSenhaNova" type="password" placeholder="Nova senha">
+    <label>Confirmar senha</label><input id="primeiraSenhaConfirma" type="password" placeholder="Confirme a senha">
+    <div class="row"><button class="green" onclick="salvarPrimeiroAcesso()" style="width:100%">Salvar e continuar</button></div>
+  </div>
+</div>
+
+<script>
+const defaultDB={
+ users:[{user:'adm',pass:'0000',role:'ADM'},{user:'atendimento',pass:'0000',role:'Atendimento'},{user:'atendimento2',pass:'0000',role:'Atendimento'},{user:'caixa',pass:'0000',role:'Caixa'}],
+ empresa:{nome:'MotoSOS Gestão',doc:'00.000.000/0001-00',tel:'(47) 99999-9999',end:'Rua Exemplo, 123 - Camboriú/SC',logo:''},
+ clientes:[],motos:[],os:[],vendas:[],estoque:[],financeiro:[],funcionarios:[],chamados:[],audit:[],plan:'Start',cargos:{mecanico:'Mecânico',vendedor:'Vendedor'}
+};
+let db={},current=null,tempEdit=null,currentCaixaItem=null;
+let currentOficinaId=null,currentOficinaStatus='',currentSupabaseUser=null,currentAssinatura=null;
+
+// ===== Conexão Supabase / MotoSOS Admin =====
+const SUPABASE_REST_URL='https://mbpjlkbwcbjcpsjxgtlj.supabase.co/rest/v1';
+const SUPABASE_KEY='sb_publishable_CFtFDFgdSuQ_Tn_vBayF8g_NQeu23c_';
+const USE_SUPABASE=true;
+
+function supabaseHeaders(extra={}){
+  return {
+    'apikey':SUPABASE_KEY,
+    'Authorization':'Bearer '+SUPABASE_KEY,
+    'Content-Type':'application/json',
+    ...extra
+  };
+}
+function storageKey(){
+  return currentOficinaId ? `motosos_db_v3_oficina_${currentOficinaId}` : 'motosos_db_v3';
+}
+function mapPerfilToRole(perfil){
+  const p=String(perfil||'').toLowerCase();
+  if(p==='caixa')return 'Caixa';
+  if(p==='atendente' || p==='atendimento' || p==='vendedor')return 'Atendente';
+  return 'ADM';
+}
+function roleToPerfil(role){
+  const r=String(role||'').toLowerCase();
+  if(r==='caixa')return 'caixa';
+  if(r==='atendente' || r==='atendimento')return 'atendente';
+  return 'adm';
+}
+function precisaTrocarSenha(usuario){
+  return Boolean(usuario?.primeiro_acesso) || String(usuario?.senha||'')==='0000';
+}
+async function buscarLoginSupabase(usuario,senha){
+  const email=encodeURIComponent(String(usuario||'').trim().toLowerCase());
+  const pass=encodeURIComponent(String(senha||'').trim());
+  const url=`${SUPABASE_REST_URL}/usuarios_sistema?email=eq.${email}&senha=eq.${pass}&ativo=eq.true&select=*&limit=1`;
+  const resp=await fetch(url,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function buscarOficinaSupabase(oficinaId){
+  const resp=await fetch(`${SUPABASE_REST_URL}/oficinas?id=eq.${oficinaId}&select=*&limit=1`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function buscarAssinaturaSupabase(oficinaId){
+  const resp=await fetch(`${SUPABASE_REST_URL}/assinaturas?oficina_id=eq.${oficinaId}&select=*&order=id.desc&limit=1`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+
+async function carregarUsuariosSistemaSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema?oficina_id=eq.${currentOficinaId}&select=*&order=id.asc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  db.usuariosSistema=await resp.json()||[];
+}
+async function atualizarUsuarioSistemaSupabase(id,dados){
+  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'PATCH',headers:supabaseHeaders({'Prefer':'return=representation'}),body:JSON.stringify(dados)
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();return arr[0]||null;
+}
+async function criarUsuarioSistemaSupabase(dados){
+  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema`,{
+    method:'POST',headers:supabaseHeaders({'Prefer':'return=representation'}),body:JSON.stringify(dados)
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();return arr[0]||null;
+}
+async function salvarPrimeiroAcesso(){
+  try{
+    const novoLogin=val('primeiroLoginNovo').trim();
+    const novaSenha=val('primeiraSenhaNova').trim();
+    const confirma=val('primeiraSenhaConfirma').trim();
+    if(!novoLogin||!novaSenha||!confirma)return alert('Preencha novo login, nova senha e confirmação.');
+    if(novaSenha.length<4)return alert('A senha precisa ter pelo menos 4 caracteres.');
+    if(novaSenha!==confirma)return alert('As senhas não conferem.');
+    const atualizado=await atualizarUsuarioSistemaSupabase(currentSupabaseUser.id,{email:novoLogin,senha:novaSenha,primeiro_acesso:false});
+    currentSupabaseUser={...currentSupabaseUser,...atualizado,email:novoLogin,senha:novaSenha,primeiro_acesso:false};
+    if(current){current.user=novoLogin;current.pass=novaSenha;}
+    document.getElementById('currentUser').innerText=currentSupabaseUser.nome||novoLogin;
+    document.getElementById('firstAccessOverlay').classList.remove('show');
+    alert('Login e senha alterados com sucesso.');
+    await carregarUsuariosSistemaSupabase();renderAll();
+  }catch(e){console.error(e);alert('Erro ao alterar login/senha. Verifique se o login já não está em uso.');}
+}
+function abrirPrimeiroAcesso(usuario){
+  const o=document.getElementById('firstAccessOverlay'); if(!o)return;
+  document.getElementById('primeiroLoginNovo').value=usuario?.email||'';
+  document.getElementById('primeiraSenhaNova').value='';
+  document.getElementById('primeiraSenhaConfirma').value='';
+  o.classList.add('show');
+}
+
+async function carregarClientesSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/clientes?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.clientes=(arr||[]).map(c=>({
+    id:c.id,
+    tipo:'Completo',
+    nome:c.nome||'',
+    telefone:c.telefone||'',
+    doc:c.cpf_cnpj||'',
+    email:c.email||'',
+    cep:c.cep||'',
+    endereco:c.endereco||'',
+    numero:c.numero||'',
+    bairro:c.bairro||'',
+    cidade:c.cidade||'',
+    estado:c.estado||''
+  }));
+}
+async function criarClienteSupabase(c){
+  if(!currentOficinaId)throw new Error('Oficina não identificada. Faça login novamente.');
+  const resp=await fetch(`${SUPABASE_REST_URL}/clientes`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      nome:c.nome,
+      telefone:c.telefone||null,
+      cpf_cnpj:c.doc||null,
+      email:c.email||null,
+      cep:c.cep||null,
+      endereco:c.endereco||null,
+      numero:c.numero||null,
+      bairro:c.bairro||null,
+      cidade:c.cidade||null,
+      estado:c.estado||null
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function atualizarClienteSupabase(id,c){
+  const resp=await fetch(`${SUPABASE_REST_URL}/clientes?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'PATCH',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      nome:c.nome,
+      telefone:c.telefone||null,
+      cpf_cnpj:c.doc||null,
+      email:c.email||null,
+      cep:c.cep||null,
+      endereco:c.endereco||null,
+      numero:c.numero||null,
+      bairro:c.bairro||null,
+      cidade:c.cidade||null,
+      estado:c.estado||null
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  return await resp.json();
+}
+async function excluirClienteSupabase(id){
+  const resp=await fetch(`${SUPABASE_REST_URL}/clientes?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'DELETE',
+    headers:supabaseHeaders()
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+}
+
+async function carregarMotosSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/motos?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.motos=(arr||[]).map(m=>({
+    id:m.id,
+    clienteId:m.cliente_id,
+    placa:m.placa||'',
+    marca:m.marca||'',
+    modelo:m.modelo||'',
+    cor:m.cor||'',
+    ano:m.ano||'',
+    km:m.km||'',
+    obs:m.observacoes||''
+  }));
+}
+async function criarMotoSupabase(m){
+  if(!currentOficinaId)throw new Error('Oficina não identificada. Faça login novamente.');
+  const resp=await fetch(`${SUPABASE_REST_URL}/motos`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      cliente_id:m.clienteId,
+      marca:m.marca||null,
+      modelo:m.modelo||null,
+      ano:m.ano||null,
+      placa:m.placa||null,
+      cor:m.cor||null,
+      km:m.km||null,
+      observacoes:m.obs||null
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function excluirMotoSupabase(id){
+  const resp=await fetch(`${SUPABASE_REST_URL}/motos?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'DELETE',
+    headers:supabaseHeaders()
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+}
+
+
+async function carregarOSSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/ordens_servico?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.os=(arr||[]).map(o=>({
+    id:o.id,
+    numero:o.numero_os || ('OS'+String(o.id).padStart(4,'0')),
+    clienteId:o.cliente_id,
+    motoId:o.moto_id,
+    problema:o.problema_relatado||'',
+    status:o.status||'Aguardando aprovação',
+    vendedorId:o.vendedor_id||'',
+    data:(o.criado_em||'').slice(0,10)||todayISO(),
+    entregaData:null,
+    pagamentoData:null,
+    pecas:Array.isArray(o.itens_pecas)?o.itens_pecas:[],
+    mao:Array.isArray(o.itens_mao_obra)?o.itens_mao_obra:[],
+    valorTotal:Number(o.valor_total||0)
+  }));
+}
+async function criarOSSupabase(o){
+  if(!currentOficinaId)throw new Error('Oficina não identificada. Faça login novamente.');
+  const resp=await fetch(`${SUPABASE_REST_URL}/ordens_servico`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      cliente_id:o.clienteId,
+      moto_id:o.motoId,
+      numero_os:o.numero,
+      status:o.status||'Aguardando aprovação',
+      problema_relatado:o.problema||null,
+      observacoes:o.observacoes||null,
+      mao_obra:0,
+      valor_pecas:0,
+      valor_total:0,
+      itens_pecas:o.pecas||[],
+      itens_mao_obra:o.mao||[]
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function atualizarOSSupabase(o){
+  const valorMao=(o.mao||[]).reduce((s,m)=>s+Number(m.valor||0),0);
+  const valorPecas=(o.pecas||[]).reduce((s,p)=>s+Number(p.total||0),0);
+  const resp=await fetch(`${SUPABASE_REST_URL}/ordens_servico?id=eq.${o.id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'PATCH',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      status:o.status,
+      problema_relatado:o.problema||null,
+      mao_obra:valorMao,
+      valor_pecas:valorPecas,
+      valor_total:valorMao+valorPecas,
+      itens_pecas:o.pecas||[],
+      itens_mao_obra:o.mao||[]
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  return await resp.json();
+}
+async function excluirOSSupabase(id){
+  const resp=await fetch(`${SUPABASE_REST_URL}/ordens_servico?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'DELETE',
+    headers:supabaseHeaders()
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+}
+
+
+async function carregarEstoqueSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/estoque?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.estoque=(arr||[]).map(p=>({
+    id:p.id,
+    codigo:p.codigo||String(p.id).padStart(11,'0'),
+    produto:p.descricao||'',
+    qtd:Number(p.quantidade||0),
+    custo:Number(p.custo||0),
+    venda:Number(p.preco_venda||0),
+    fornecedor:p.fornecedor||''
+  }));
+}
+async function criarEstoqueSupabase(p){
+  if(!currentOficinaId)throw new Error('Oficina não identificada. Faça login novamente.');
+  const resp=await fetch(`${SUPABASE_REST_URL}/estoque`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      codigo:p.codigo||null,
+      descricao:p.produto,
+      quantidade:Number(p.qtd||0),
+      custo:Number(p.custo||0),
+      preco_venda:Number(p.venda||0),
+      percentual_lucro:Number(p.percentual_lucro||0)
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function atualizarEstoqueSupabase(id,p){
+  const resp=await fetch(`${SUPABASE_REST_URL}/estoque?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'PATCH',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      codigo:p.codigo||null,
+      descricao:p.produto,
+      quantidade:Number(p.qtd||0),
+      custo:Number(p.custo||0),
+      preco_venda:Number(p.venda||0),
+      percentual_lucro:Number(p.percentual_lucro||0)
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  return await resp.json();
+}
+async function excluirEstoqueSupabase(id){
+  const resp=await fetch(`${SUPABASE_REST_URL}/estoque?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'DELETE',
+    headers:supabaseHeaders()
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+}
+
+
+async function carregarVendasSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/vendas?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.vendas=(arr||[]).map(v=>({
+    id:v.id,
+    numero:v.numero_venda || ('VEND'+String(v.id).padStart(4,'0')),
+    tipo:'Venda balcão',
+    clienteId:v.cliente_id || '',
+    produtoId:v.produto_id || '',
+    codigo:'',
+    produto:v.produto_descricao || '',
+    vendedorId:'',
+    vendedorNome:v.vendedor || '-',
+    qtd:Number(v.quantidade||1),
+    unit:Number(v.valor_unitario||0),
+    total:Number(v.valor_total||0),
+    data:(v.criado_em||'').slice(0,10)||todayISO(),
+    status:v.status||'Aberta',
+    formaPagamento:v.forma_pagamento||'',
+    pagamentoData:null,
+    notaEmitida:String(v.status||'').toLowerCase()==='finalizada'
+  }));
+}
+async function criarVendaSupabase(v){
+  if(!currentOficinaId)throw new Error('Oficina não identificada. Faça login novamente.');
+  const resp=await fetch(`${SUPABASE_REST_URL}/vendas`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      cliente_id:v.clienteId?Number(v.clienteId):null,
+      produto_id:v.produtoId?Number(v.produtoId):null,
+      numero_venda:v.numero,
+      vendedor:v.vendedorNome||current?.nome||current?.user||'Usuário',
+      produto_descricao:v.produto||null,
+      quantidade:Number(v.qtd||1),
+      valor_unitario:Number(v.unit||0),
+      valor_total:Number(v.total||0),
+      forma_pagamento:v.formaPagamento||null,
+      status:v.status||'Aberta'
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function atualizarVendaSupabase(id,dados){
+  const resp=await fetch(`${SUPABASE_REST_URL}/vendas?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'PATCH',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify(dados)
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+
+async function atualizarQuantidadeEstoqueSupabase(produtoId,novaQuantidade){
+  const resp=await fetch(`${SUPABASE_REST_URL}/estoque?id=eq.${produtoId}&oficina_id=eq.${currentOficinaId}`,{
+    method:'PATCH',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({quantidade:Number(novaQuantidade||0)})
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  return await resp.json();
+}
+
+async function carregarFinanceiroOficinaSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/financeiro_oficina?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.financeiroOficina=(arr||[]).map(f=>({
+    id:f.id,
+    oficinaId:f.oficina_id,
+    origem:f.origem||'',
+    origemId:f.origem_id||'',
+    tipo:f.tipo||'Entrada',
+    desc:f.descricao||'',
+    valor:Number(f.valor||0),
+    formaPagamento:f.forma_pagamento||'',
+    status:f.status||'Recebido',
+    data:(f.criado_em||'').slice(0,10)||todayISO()
+  }));
+}
+async function criarFinanceiroOficinaSupabase(lancamento){
+  if(!currentOficinaId)throw new Error('Oficina não identificada. Faça login novamente.');
+  const resp=await fetch(`${SUPABASE_REST_URL}/financeiro_oficina`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      origem:lancamento.origem||null,
+      origem_id:lancamento.origemId?Number(lancamento.origemId):null,
+      tipo:lancamento.tipo||'Entrada',
+      descricao:lancamento.descricao||null,
+      valor:Number(lancamento.valor||0),
+      forma_pagamento:lancamento.formaPagamento||null,
+      status:lancamento.status||'Recebido'
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+
+async function carregarCaixaSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/caixa?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.caixa=(arr||[]).map(c=>({
+    id:c.id,
+    oficinaId:c.oficina_id,
+    tipo:c.tipo||'Saída',
+    desc:c.descricao||'',
+    valor:Number(c.valor||0),
+    origem:c.origem||'Manual',
+    origemId:c.origem_id||null,
+    data:(c.criado_em||'').slice(0,10)||todayISO()
+  }));
+}
+async function criarCaixaSupabase(lancamento){
+  if(!currentOficinaId)throw new Error('Oficina não identificada. Faça login novamente.');
+  const resp=await fetch(`${SUPABASE_REST_URL}/caixa`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      tipo:lancamento.tipo||'Saída',
+      descricao:lancamento.descricao||null,
+      valor:Number(lancamento.valor||0),
+      origem:lancamento.origem||'Manual',
+      origem_id:lancamento.origemId?Number(lancamento.origemId):null
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function addCaixaManual(){
+  const tipo=val('caixaTipo');
+  const descricao=val('caixaDesc').trim();
+  const valor=Number(val('caixaValor')||0);
+  if(!descricao)return alert('Informe a descrição.');
+  if(valor<=0)return alert('Informe um valor maior que zero.');
+  try{
+    await criarCaixaSupabase({tipo,descricao,valor,origem:'Manual'});
+    await carregarCaixaSupabase();
+    clear(['caixaDesc']);
+    const cv=document.getElementById('caixaValor'); if(cv)cv.value=0;
+    renderAll();
+    alert('Movimento lançado no caixa.');
+  }catch(e){
+    console.error(e);
+    alert('Erro ao lançar no caixa. Confira Console/Network.');
+  }
+}
+function sinalCaixa(tipo){
+  const t=String(tipo||'').toLowerCase();
+  if(t.includes('saída')||t.includes('saida')||t.includes('sangria'))return -1;
+  return 1;
+}
+function renderCaixa(){
+  const tableEl=document.getElementById('caixaTable');
+  if(!tableEl)return;
+  const hoje=todayISO();
+  const entradasFinanceiro=(db.financeiroOficina||[]).filter(f=>f.data===hoje && String(f.tipo||'').toLowerCase().includes('entrada'));
+  const movCaixa=(db.caixa||[]).filter(c=>c.data===hoje);
+  const linhas=[];
+  entradasFinanceiro.forEach(f=>linhas.push({data:f.data,tipo:'Entrada / '+(f.origem||'Financeiro'),desc:f.desc||'-',valor:Number(f.valor||0)}));
+  movCaixa.forEach(c=>linhas.push({data:c.data,tipo:c.tipo,desc:c.desc||'-',valor:Number(c.valor||0)*sinalCaixa(c.tipo)}));
+  const entradas=linhas.filter(l=>l.valor>=0).reduce((s,l)=>s+l.valor,0);
+  const saidas=Math.abs(linhas.filter(l=>l.valor<0).reduce((s,l)=>s+l.valor,0));
+  const saldo=entradas-saidas;
+  const ce=document.getElementById('caixaEntradas'); if(ce)ce.innerText=money(entradas);
+  const cs=document.getElementById('caixaSaidas'); if(cs)cs.innerText=money(saidas);
+  const csl=document.getElementById('caixaSaldo'); if(csl)csl.innerText=money(saldo);
+  const cm=document.getElementById('caixaMovimentos'); if(cm)cm.innerText=linhas.length;
+  table('caixaTable',['Data','Tipo','Descrição','Valor'],linhas.map(l=>[brDate(l.data),l.tipo,l.desc,money(l.valor)]));
+}
+
+function aplicarDadosOficinaNoApp(oficina,assinatura){
+  if(!oficina)return;
+  db.empresa.nome=oficina.nome_fantasia || oficina.razao_social || db.empresa.nome || 'MotoSOS Gestão';
+  db.empresa.doc=oficina.cnpj_cpf || db.empresa.doc || '';
+  db.empresa.tel=oficina.whatsapp || oficina.telefone || db.empresa.tel || '';
+  db.empresa.end=[oficina.endereco,oficina.numero,oficina.bairro,oficina.cidade,oficina.estado].filter(Boolean).join(' - ');
+  db.plan=assinatura?.plano || db.plan || 'Start';
+}
+function diasAteVencimento(data){
+  if(!data)return null;
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const venc=new Date(data+'T00:00:00');
+  return Math.ceil((venc-hoje)/(1000*60*60*24));
+}
+function verificarAvisoAssinatura(){
+  if(!currentAssinatura)return;
+  const dias=diasAteVencimento(currentAssinatura.data_vencimento);
+  if(dias===null)return;
+  if(dias<0){
+    setTimeout(()=>alert('Sua assinatura está vencida. Regularize o pagamento para evitar bloqueio do sistema.'),400);
+  }else if(dias<=5){
+    setTimeout(()=>alert(`Atenção: sua assinatura vence em ${dias} dia(s). Regularize o pagamento para manter o acesso.`),400);
+  }
+}
+
+function load(){
+  db=JSON.parse(localStorage.getItem(storageKey())||JSON.stringify(defaultDB));
+  if(db.agenda) delete db.agenda;
+  if(!db.cargos) db.cargos={mecanico:'Mecânico',vendedor:'Vendedor'};
+  if(!db.chamados) db.chamados=[];
+  if(!db.financeiroOficina) db.financeiroOficina=[];
+  if(!db.caixa) db.caixa=[];
+  if(!db.users.some(u=>u.user==='caixa')) db.users.push({user:'caixa',pass:'0000',role:'Caixa'});
+  db.users.forEach(u=>{if(u.user==='caixa')u.role='Caixa'});
+  db.vendas.forEach(v=>{if(!v.status)v.status='Aberta'});
+  normalizarNumeracaoDocumentos();
+  localStorage.setItem(storageKey(),JSON.stringify(db));
+}
+function normalizarNumeracaoDocumentos(){
+  (db.vendas||[]).forEach((v,i)=>{v.numero='VEND'+String(i+1).padStart(4,'0')});
+  (db.os||[]).forEach((o,i)=>{o.numero='OS'+String(i+1).padStart(4,'0')});
+}
+function save(){localStorage.setItem(storageKey(),JSON.stringify(db));renderAll()}
+function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function val(id){return document.getElementById(id)?.value||''}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+function brDate(iso){if(!iso)return'';let [y,m,d]=iso.split('-');return `${d}/${m}/${y}`}
+function audit(msg){db.audit.unshift({data:new Date().toLocaleString('pt-BR'),user:current?.user||'sistema',msg});save()}
+function clear(ids){ids.forEach(id=>{let e=document.getElementById(id);if(e)e.value=''})}
+async function login(){
+  let u=val('loginUser').trim(),p=val('loginPass').trim();
+  if(!u||!p)return alert('Informe usuário e senha.');
+
+  try{
+    const usuario=await buscarLoginSupabase(u,p);
+    if(!usuario)return alert('Usuário ou senha inválidos.');
+
+    const oficina=await buscarOficinaSupabase(usuario.oficina_id);
+    if(!oficina)return alert('Oficina não encontrada. Fale com o suporte MotoSOS.');
+
+    const assinatura=await buscarAssinaturaSupabase(usuario.oficina_id);
+    const statusOficina=String(oficina.status||'').trim();
+    const statusAssinatura=String(assinatura?.status||'').trim();
+
+    if(['Bloqueada','Cancelada'].includes(statusOficina) || statusAssinatura==='Cancelada'){
+      alert('Acesso bloqueado por pendência financeira ou assinatura cancelada. Regularize a mensalidade com o MotoSOS para acessar novamente.');
+      return;
+    }
+
+    currentOficinaId=usuario.oficina_id;
+    currentOficinaStatus=statusOficina;
+    currentSupabaseUser=usuario;
+    currentAssinatura=assinatura;
+
+    // Carrega o banco local separado desta oficina neste navegador.
+    load();
+    aplicarDadosOficinaNoApp(oficina,assinatura);
+    await carregarClientesSupabase();
+    await carregarMotosSupabase();
+    await carregarOSSupabase();
+    await carregarEstoqueSupabase();
+    await carregarVendasSupabase();
+    await carregarFuncionariosSupabase();
+    await carregarFinanceiroOficinaSupabase();
+    await carregarCaixaSupabase();
+    await carregarUsuariosSistemaSupabase();
+
+    current={
+      user:usuario.email,
+      nome:usuario.nome,
+      pass:usuario.senha,
+      role:mapPerfilToRole(usuario.perfil),
+      perfil:usuario.perfil,
+      oficina_id:usuario.oficina_id
+    };
+
+    document.body.classList.toggle('caixa-mode',current.role==='Caixa');
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('currentUser').innerText=usuario.nome||usuario.email;
+    document.getElementById('currentRole').innerText=current.role;
+    buildNav();
+    renderAll();
+    showSection(current.role==='Caixa'?'caixa':'dashboard');
+    verificarAvisoAssinatura();
+    if(precisaTrocarSenha(usuario)) abrirPrimeiroAcesso(usuario);
+    save();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao entrar. Verifique sua internet ou fale com o suporte MotoSOS.');
+  }
+}
+function logout(){
+  current=null;
+  currentOficinaId=null;
+  currentOficinaStatus='';
+  currentSupabaseUser=null;
+  currentAssinatura=null;
+  tempEdit=null;
+  currentCaixaItem=null;
+  document.body.classList.remove('caixa-mode');
+  const loginEl=document.getElementById('login');
+  const appEl=document.getElementById('app');
+  if(loginEl)loginEl.style.display='flex';
+  if(appEl)appEl.style.display='none';
+  const userEl=document.getElementById('loginUser');
+  const passEl=document.getElementById('loginPass');
+  if(userEl)userEl.value='';
+  if(passEl)passEl.value='';
+}
+
+async function refreshSupabaseDataForSection(sectionId){
+  if(!currentOficinaId)return;
+  try{
+    if(['dashboard','financeiro','caixa','relatorios','vendas','estoque'].includes(sectionId)){
+      await carregarClientesSupabase();
+      await carregarMotosSupabase();
+      await carregarOSSupabase();
+      await carregarEstoqueSupabase();
+      await carregarVendasSupabase();
+      await carregarFinanceiroOficinaSupabase();
+      await carregarCaixaSupabase();
+    }
+  }catch(e){
+    console.error('Erro ao atualizar dados do Supabase:', e);
+  }
+}
+
+function atualizarCardsFinanceiroECaixa(){
+  const vendasTotal=(db.vendas||[]).reduce((s,v)=>s+Number(v.total||v.valor_total||0),0);
+  const osAbertasTotal=(db.os||[]).filter(o=>String(o.status||'')!=='Entregue').reduce((s,o)=>s+osTotal(o),0);
+  const entradasFinanceiro=(db.financeiroOficina||[]).filter(f=>String(f.tipo||'').toLowerCase().includes('entrada')).reduce((s,f)=>s+Number(f.valor||0),0);
+  const saidasFinanceiro=(db.financeiroOficina||[]).filter(f=>String(f.tipo||'').toLowerCase().includes('saída')||String(f.tipo||'').toLowerCase().includes('saida')).reduce((s,f)=>s+Number(f.valor||0),0);
+  const entradasCaixa=(db.caixa||[]).filter(c=>sinalCaixa(c.tipo)>0).reduce((s,c)=>s+Number(c.valor||0),0);
+  const saidasCaixa=(db.caixa||[]).filter(c=>sinalCaixa(c.tipo)<0).reduce((s,c)=>s+Number(c.valor||0),0);
+
+  const finGeral=document.getElementById('finGeralTotal'); if(finGeral)finGeral.innerText=money(vendasTotal);
+  const finOs=document.getElementById('finOsAbertasTotal'); if(finOs)finOs.innerText=money(osAbertasTotal);
+  const finEnt=document.getElementById('finEntradasTotal'); if(finEnt)finEnt.innerText=money(entradasFinanceiro+entradasCaixa);
+  const finSai=document.getElementById('finSaidasTotal'); if(finSai)finSai.innerText=money(saidasFinanceiro+saidasCaixa);
+
+  const cxEntradas=document.getElementById('caixaEntradas'); if(cxEntradas)cxEntradas.innerText=money(entradasFinanceiro+entradasCaixa);
+  const cxSaidas=document.getElementById('caixaSaidas'); if(cxSaidas)cxSaidas.innerText=money(saidasFinanceiro+saidasCaixa);
+  const cxSaldo=document.getElementById('caixaSaldo'); if(cxSaldo)cxSaldo.innerText=money((entradasFinanceiro+entradasCaixa)-(saidasFinanceiro+saidasCaixa));
+  const cxMov=document.getElementById('caixaMovimentos'); if(cxMov)cxMov.innerText=(db.financeiroOficina||[]).length+(db.caixa||[]).length;
+}
+
+function toggleMenu(open){document.getElementById('drawer').classList.toggle('open',open);document.getElementById('overlay').classList.toggle('show',open)}
+function planKey(){let p=(db.plan||'Start').toLowerCase();if(p.includes('pro'))return 'pro';if(p.includes('oficina'))return 'oficina';return 'start'}
+function sectionAllowed(id){
+  if(id==='impressao')return true;
+  if(current && current.role==='Caixa')return ['caixa','financeiro','relatorios','impressao'].includes(id);
+  if(current && current.role==='Atendente')return ['dashboard','clientes','motos','os','vendas','estoque','impressao'].includes(id);
+
+  const key=planKey();
+
+  // Regras oficiais dos planos MotoSOS Gestão para ADM:
+  // Start: somente operação básica + Plano.
+  // Oficina: tudo, menos Contato Pro e Funcionários.
+  // Pro: acesso total.
+  const start=['dashboard','clientes','motos','os','vendas','estoque','planos'];
+  const oficina=['dashboard','clientes','motos','os','orcamentos','vendas','estoque','financeiro','caixa','relatorios','usuarios','configuracoes','planos','auditoria'];
+  const pro=['dashboard','clientes','motos','os','orcamentos','vendas','estoque','financeiro','caixa','funcionarios','relatorios','usuarios','contatoPro','configuracoes','planos','auditoria'];
+
+  return (key==='pro'?pro:key==='oficina'?oficina:start).includes(id);
+}
+function upgradeMessage(id){
+  if(id==='contatoPro')return 'Contato Pro liberado somente no Plano Pro.';
+  if(id==='funcionarios')return 'Funcionários liberado somente no Plano Pro.';
+  if(id==='financeiro'||id==='caixa'||id==='relatorios'||id==='usuarios'||id==='configuracoes'||id==='auditoria'||id==='orcamentos')return 'Este recurso está disponível a partir do Plano Oficina.';
+  return 'Este recurso não está disponível no plano atual.';
+}
+function buildMobileBottom(items){
+  const mb=document.getElementById('mobileBottom');
+  if(!mb)return;
+  if(current && current.role==='Caixa'){
+    mb.innerHTML=`<button onclick="showSection('caixa')"><b>💰</b>Caixa</button><button onclick="logout()"><b>↩</b>Sair</button>`;
+    return;
+  }
+  const icon={dashboard:'⌂',clientes:'👤',motos:'🏍',os:'🧾',vendas:'🛒',estoque:'📦',financeiro:'💰',caixa:'💵'};
+  const prioridade=['dashboard','clientes','motos','os','vendas','estoque','financeiro','caixa'];
+  const visiveis=prioridade.map(id=>items.find(i=>i[0]===id)).filter(Boolean).slice(0,4);
+  mb.innerHTML=visiveis.map(i=>`<button onclick="showSection('${i[0]}')"><b>${icon[i[0]]||'•'}</b>${i[1]}</button>`).join('')+`<button onclick="toggleMenu(true)"><b>☰</b>Menu</button>`;
+}
+function buildNav(){
+  if(current.role==='Caixa'){
+    const items=[['caixa','Caixa'],['financeiro','Financeiro'],['relatorios','Relatórios']];
+    document.getElementById('nav').innerHTML=items.map(i=>`<button id="nav-${i[0]}" onclick="showSection('${i[0]}')">${i[1]}</button>`).join('');
+    buildMobileBottom(items);
+    return;
+  }
+  const allItems=[
+    ['dashboard','Dashboard'],['clientes','Clientes'],['motos','Motos'],['os','O.S.'],['orcamentos','Orçamentos'],['vendas','Vendas'],
+    ['estoque','Estoque'],['financeiro','Financeiro'],['caixa','Caixa'],['funcionarios','Funcionários'],['relatorios','Relatórios'],
+    ['usuarios','Usuários'],['contatoPro','Contato Pro'],['configuracoes','Configurações'],['planos','Plano'],['auditoria','Auditoria']
+  ];
+  let items=allItems.filter(i=>sectionAllowed(i[0]));
+  document.getElementById('nav').innerHTML=items.map(i=>`<button id="nav-${i[0]}" onclick="showSection('${i[0]}')">${i[1]}</button>`).join('');
+  buildMobileBottom(items);
+}
+async function showSection(id){
+  if(!sectionAllowed(id)){alert(upgradeMessage(id));id='dashboard'}
+  let el=document.getElementById(id);if(!el)return;
+  await refreshSupabaseDataForSection(id);
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  let n=document.getElementById('nav-'+id);if(n)n.classList.add('active');
+  toggleMenu(false);
+  renderAll();
+  atualizarCardsFinanceiroECaixa();
+}
+function table(id,heads,rows){let e=document.getElementById(id);if(!e)return;e.innerHTML='<tr>'+heads.map(h=>`<th>${h}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')}
+function fillSelect(id,opts){let e=document.getElementById(id);if(!e)return;let cur=e.value;e.innerHTML='<option value="">Selecione</option>'+opts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('');e.value=cur}
+function cliente(id){return db.clientes.find(c=>String(c.id)===String(id))||{}}
+function clienteName(id){return cliente(id).nome||'-'}
+function moto(id){return db.motos.find(m=>String(m.id)===String(id))||{}}
+function motoName(id){let m=moto(id);return m.placa?`${m.modelo} - ${m.placa}`:'-'}
+function produto(id){return db.estoque.find(p=>String(p.id)===String(id))||{}}
+function func(id){return db.funcionarios.find(f=>String(f.id)===String(id))||{}}
+async function buscarCep(tipo){
+  let cepEl = tipo==='edit'?document.getElementById('editClienteCep'):document.getElementById('clienteCep');
+  let cep = cepEl.value.replace(/\D/g,'');
+  if(cep.length!==8) return;
+  try{
+    let r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    let d=await r.json();
+    if(d.erro){alert('CEP não encontrado.');return}
+    const pre = tipo==='edit'?'editCliente':'cliente';
+    document.getElementById(pre+'Endereco').value=d.logradouro||'';
+    document.getElementById(pre+'Bairro').value=d.bairro||'';
+    document.getElementById(pre+'Cidade').value=d.localidade||'';
+    document.getElementById(pre+'Estado').value=d.uf||'';
+  }catch(e){alert('Não foi possível buscar o CEP agora.')}
+}
+async function addCliente(){
+  let c={tipo:'Completo',nome:val('clienteNome'),telefone:val('clienteTelefone'),doc:val('clienteDoc'),email:val('clienteEmail'),cep:val('clienteCep'),endereco:val('clienteEndereco'),numero:val('clienteNumero'),bairro:val('clienteBairro'),cidade:val('clienteCidade'),estado:val('clienteEstado')};
+  if(!c.nome||!c.telefone)return alert('Nome e telefone são obrigatórios.');
+  try{
+    await criarClienteSupabase(c);
+    await carregarClientesSupabase();
+    clear(['clienteNome','clienteTelefone','clienteDoc','clienteEmail','clienteCep','clienteEndereco','clienteNumero','clienteBairro','clienteCidade','clienteEstado']);
+    alert('Cliente salvo no Supabase com sucesso.');
+    audit('Criou cliente '+c.nome);
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao salvar cliente no Supabase.');
+  }
+}
+function editCliente(id){
+  let c=cliente(id); if(!c.id)return;
+  document.getElementById('editClienteBox').style.display='block';
+  document.getElementById('editClienteId').value=c.id;
+  document.getElementById('editClienteNome').value=c.nome||'';
+  document.getElementById('editClienteTelefone').value=c.telefone||'';
+  document.getElementById('editClienteDoc').value=c.doc||'';
+  document.getElementById('editClienteEmail').value=c.email||'';
+  document.getElementById('editClienteCep').value=c.cep||'';
+  document.getElementById('editClienteEndereco').value=c.endereco||'';
+  document.getElementById('editClienteNumero').value=c.numero||'';
+  document.getElementById('editClienteBairro').value=c.bairro||'';
+  document.getElementById('editClienteCidade').value=c.cidade||'';
+  document.getElementById('editClienteEstado').value=c.estado||'';
+}
+async function saveClienteEdit(){
+  let id=Number(val('editClienteId'));
+  let c={
+    nome:val('editClienteNome'),
+    telefone:val('editClienteTelefone'),
+    doc:val('editClienteDoc'),
+    email:val('editClienteEmail'),
+    cep:val('editClienteCep'),
+    endereco:val('editClienteEndereco'),
+    numero:val('editClienteNumero'),
+    bairro:val('editClienteBairro'),
+    cidade:val('editClienteCidade'),
+    estado:val('editClienteEstado')
+  };
+  if(!id)return alert('Cliente não identificado.');
+  if(!c.nome||!c.telefone)return alert('Nome e telefone são obrigatórios.');
+  try{
+    await atualizarClienteSupabase(id,c);
+    await carregarClientesSupabase();
+    document.getElementById('editClienteBox').style.display='none';
+    alert('Cliente atualizado no Supabase.');
+    audit('Editou cliente '+c.nome);
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao atualizar cliente no Supabase.');
+  }
+}
+async function deleteCliente(id){
+  if(!confirm('Excluir este cliente?'))return;
+  try{
+    await excluirClienteSupabase(id);
+    await carregarClientesSupabase();
+    renderAll();
+    alert('Cliente excluído.');
+  }catch(e){
+    console.error(e);
+    alert('Erro ao excluir cliente. Verifique se ele não está vinculado a motos ou O.S.');
+  }
+}
+function cancelClienteEdit(){document.getElementById('editClienteBox').style.display='none'}
+
+
+
+function consultaPlacaLiberada(){return planKey()==='pro'}
+function puxarDadosMotoPorPlaca(){
+  if(!consultaPlacaLiberada()){alert('Consulta automática de placa disponível apenas no Plano Pro. Neste plano, preencha marca, modelo, cor e ano manualmente.');return;}
+  let placa=val('motoPlaca').toUpperCase().replace(/\s|-/g,'');
+  if(!placa)return;
+
+  // Protótipo local: exemplos para teste.
+  // No sistema real, essa parte deve ser substituída por uma API de consulta de placa.
+  const baseDemo={
+    'ABC1D23':{marca:'Honda',modelo:'CG 160 Fan',cor:'Vermelha',ano:'2024'},
+    'MKR1A25':{marca:'Honda',modelo:'CG 160 Fan',cor:'Preta',ano:'2022'},
+    'BRA2E19':{marca:'Yamaha',modelo:'Factor 150',cor:'Azul',ano:'2023'},
+    'R15A2024':{marca:'Yamaha',modelo:'R15',cor:'Azul',ano:'2024'}
+  };
+
+  let dados=baseDemo[placa];
+
+  if(!dados){
+    alert('Placa não encontrada na base de teste.\n\nNo sistema real, essa consulta virá de uma API de placa.\n\nPara testar agora, use: ABC1D23, MKR1A25, BRA2E19 ou R15A2024.');
+    document.getElementById('motoMarca').value='';
+    document.getElementById('motoModelo').value='';
+    document.getElementById('motoCor').value='';
+    document.getElementById('motoAno').value='';
+    return;
+  }
+
+  document.getElementById('motoMarca').value=dados.marca;
+  document.getElementById('motoModelo').value=dados.modelo;
+  document.getElementById('motoCor').value=dados.cor;
+  document.getElementById('motoAno').value=dados.ano;
+}
+
+async function addMoto(){
+  let m={
+    clienteId:val('motoCliente'),
+    placa:val('motoPlaca').toUpperCase().trim(),
+    marca:val('motoMarca'),
+    modelo:val('motoModelo'),
+    cor:val('motoCor'),
+    ano:val('motoAno'),
+    km:'',
+    obs:''
+  };
+  if(!m.clienteId||!m.placa||!m.marca||!m.modelo||!m.cor||!m.ano){
+    return alert('Cliente, placa, marca, modelo, cor e ano são obrigatórios.');
+  }
+  try{
+    await criarMotoSupabase(m);
+    await carregarMotosSupabase();
+    clear(['motoPlaca','motoMarca','motoModelo','motoCor','motoAno']);
+    alert('Moto salva no Supabase com sucesso.');
+    audit('Cadastrou moto '+m.placa);
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao salvar moto no Supabase.');
+  }
+}
+async function deleteMoto(id){
+  if(!confirm('Excluir esta moto?'))return;
+  try{
+    await excluirMotoSupabase(id);
+    await carregarMotosSupabase();
+    renderAll();
+    alert('Moto excluída.');
+  }catch(e){
+    console.error(e);
+    alert('Erro ao excluir moto. Verifique se ela não está vinculada a uma O.S.');
+  }
+}
+function buscarMotoPorPlaca(){
+  let placa=val('osBuscaPlaca').toUpperCase().replace(/\s/g,'');
+  let m=db.motos.find(x=>(x.placa||'').toUpperCase().replace(/\s/g,'')===placa);
+  let box=document.getElementById('osDadosEncontrados');
+  if(!m){
+    document.getElementById('osCliente').value=''; document.getElementById('osMoto').value='';
+    box.innerHTML='Placa não encontrada. Cadastre o cliente e a moto antes de abrir a O.S.';
+    return;
+  }
+  let c=cliente(m.clienteId);
+  document.getElementById('osCliente').value=c.id;
+  document.getElementById('osMoto').value=m.id;
+  box.innerHTML=`<b>Cliente:</b> ${c.nome}<br><b>Telefone:</b> ${c.telefone}<br><b>Moto:</b> ${m.modelo} | <b>Placa:</b> ${m.placa} | <b>Cor:</b> ${m.cor||'-'}`;
+}
+function nextSequenceNumber(items,prefix){
+  let maior=0;
+  (items||[]).forEach(item=>{
+    let numero=String(item.numero||'').toUpperCase();
+    let n=0;
+    if(numero.startsWith(prefix)){
+      n=parseInt(numero.slice(prefix.length).replace(/\D/g,''),10);
+    }
+    if(!isNaN(n)&&n>maior)maior=n;
+  });
+  return prefix+String(maior+1).padStart(4,'0');
+}
+function proximaOS(){return nextSequenceNumber(db.os,'OS')}
+function proximaVenda(){return nextSequenceNumber(db.vendas,'VEND')}
+async function addOS(){
+  let o={
+    numero:proximaOS(),
+    clienteId:val('osCliente'),
+    motoId:val('osMoto'),
+    problema:val('osProblema'),
+    status:val('osStatus') || 'Aguardando aprovação',
+    vendedorId:val('osVendedor'),
+    data:todayISO(),
+    entregaData:null,
+    pagamentoData:null,
+    pecas:[],
+    mao:[]
+  };
+  if(!o.clienteId||!o.motoId)return alert('Digite uma placa cadastrada para puxar cliente e moto.');
+  try{
+    await criarOSSupabase(o);
+    await carregarOSSupabase();
+    clear(['osProblema','osBuscaPlaca']);
+    document.getElementById('osDadosEncontrados').innerHTML='Digite uma placa já cadastrada para puxar cliente e moto automaticamente.';
+    alert('O.S. salva no Supabase com sucesso.');
+    audit('Criou '+o.numero);
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao salvar O.S. no Supabase.');
+  }
+}
+function startEditOS(id){let o=db.os.find(x=>x.id===id);tempEdit=JSON.parse(JSON.stringify(o));document.getElementById('editOSBox').style.display='block';document.getElementById('editOSId').value=id;document.getElementById('editOSTitle').innerText='Editar '+o.numero;document.getElementById('editOSStatus').value=o.status;renderOSItens()}
+function cancelOSEdit(){tempEdit=null;document.getElementById('editOSBox').style.display='none'}
+function addPecaToOS(){if(!tempEdit)return;let pid=val('osPecaSelect'),qtd=Number(val('osPecaQtd'));let p=produto(pid);if(!p.id)return alert('Selecione uma peça do estoque.');if(qtd<=0)return alert('Quantidade inválida.');if(qtd>Number(p.qtd))return alert('Estoque insuficiente. Disponível: '+p.qtd);tempEdit.pecas.push({produtoId:p.id,codigo:p.codigo,nome:p.produto,qtd,unit:Number(p.venda),total:qtd*Number(p.venda)});renderOSItens()}
+function addMaoToOS(){if(!tempEdit)return;let fid=val('osMecanico'),mec=func(fid),desc=val('osMaoDesc'),valor=Number(val('osMaoValor'));if(!mec.id)return alert('Selecione o mecânico.');if(!desc||valor<=0)return alert('Descrição e valor são obrigatórios.');let com=valor*(Number(mec.comissao||0)/100);tempEdit.mao.push({funcId:mec.id,mecanico:mec.nome,desc,valor,comissaoPerc:Number(mec.comissao||0),comissaoValor:com});clear(['osMaoDesc']);document.getElementById('osMaoValor').value=0;renderOSItens()}
+function renderOSItens(){let d=document.getElementById('osItensResumo');if(!tempEdit){d.innerHTML='';return}let pecas=tempEdit.pecas.map((p,i)=>`<div>Peça: ${p.codigo} - ${p.nome} | Qtd ${p.qtd} | Total ${money(p.total)} <button class="small secondary" onclick="tempEdit.pecas.splice(${i},1);renderOSItens()">remover</button></div>`).join('')||'<div>Nenhuma peça.</div>';let mao=tempEdit.mao.map((m,i)=>`<div>M.O.: ${m.desc} | ${m.mecanico} | ${money(m.valor)} | Comissão ${money(m.comissaoValor)} <button class="small secondary" onclick="tempEdit.mao.splice(${i},1);renderOSItens()">remover</button></div>`).join('')||'<div>Nenhuma mão de obra.</div>';d.innerHTML='<b>Peças</b>'+pecas+'<br><b>Mão de obra</b>'+mao}
+async function saveOSEdit(){
+  let id=Number(val('editOSId'));
+  let idx=db.os.findIndex(o=>o.id===id);
+  if(idx<0)return;
+  let old=db.os[idx];
+  let oldPecas=old.pecas||[];
+  let newPecas=tempEdit.pecas||[];
+  for(let p of newPecas){
+    let oldQtd=oldPecas.filter(x=>x.produtoId===p.produtoId).reduce((s,x)=>s+x.qtd,0);
+    let newQtd=newPecas.filter(x=>x.produtoId===p.produtoId).reduce((s,x)=>s+x.qtd,0);
+    if(newQtd>oldQtd){let prod=produto(p.produtoId);let diff=newQtd-oldQtd;if(diff>Number(prod.qtd))return alert('Estoque insuficiente para '+prod.produto)}
+  }
+  oldPecas.forEach(p=>{let prod=produto(p.produtoId);if(prod.id)prod.qtd=Number(prod.qtd)+Number(p.qtd)});
+  newPecas.forEach(p=>{let prod=produto(p.produtoId);if(prod.id)prod.qtd=Number(prod.qtd)-Number(p.qtd)});
+  let newStatus=val('editOSStatus');
+  if(newStatus==='Entregue' && old.status!=='Entregue') tempEdit.entregaData=todayISO();
+  if(newStatus!=='Entregue') tempEdit.entregaData=null;
+  tempEdit.status=newStatus;
+  try{
+    await atualizarOSSupabase(tempEdit);
+    db.os[idx]=tempEdit;
+    tempEdit=null;
+    document.getElementById('editOSBox').style.display='none';
+    await carregarOSSupabase();
+    alert('O.S. atualizada no Supabase.');
+    audit('Editou O.S. '+(db.os[idx]?.numero||id));
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao atualizar O.S. no Supabase.');
+  }
+}
+
+async function deleteOS(id){
+  if(!confirm('Excluir esta O.S.?'))return;
+  try{
+    await excluirOSSupabase(id);
+    await carregarOSSupabase();
+    renderAll();
+    alert('O.S. excluída.');
+  }catch(e){
+    console.error(e);
+    alert('Erro ao excluir O.S.');
+  }
+}
+async function addVenda(){
+  let tipo='Venda balcão',pid=val('vendaProduto'),qtd=Number(val('vendaQtd')), vendedorId=val('vendaVendedor');
+  let p=produto(pid);
+  if(!p.id)return alert('Selecione produto registrado no estoque.');
+  if(qtd<=0)return alert('Quantidade inválida.');
+  if(qtd>Number(p.qtd))return alert('Estoque insuficiente. Disponível: '+p.qtd);
+  let total=qtd*Number(p.venda);
+  let vendedorNome=(vendedorId&&func(vendedorId).nome)?func(vendedorId).nome:(current?.nome||current?.user||'Usuário');
+  let v={
+    numero:proximaVenda(),
+    tipo,
+    clienteId:val('vendaCliente')||null,
+    produtoId:p.id,
+    codigo:p.codigo,
+    produto:p.produto,
+    vendedorId,
+    vendedorNome,
+    qtd,
+    unit:Number(p.venda),
+    total,
+    data:todayISO(),
+    status:'Aberta',
+    pagamentoData:null,
+    notaEmitida:false,
+    formaPagamento:null
+  };
+  try{
+    await criarVendaSupabase(v);
+    await atualizarQuantidadeEstoqueSupabase(p.id,Number(p.qtd)-qtd);
+    await carregarEstoqueSupabase();
+    await carregarVendasSupabase();
+    document.getElementById('vendaQtd').value=1;
+    alert('Venda salva e estoque baixado com sucesso. Agora ela aparecerá no Caixa para pagamento, forma de pagamento e emissão da NF.');
+    audit('Criou '+v.numero+' e enviou para o caixa');
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao salvar venda no Supabase. Confira o Console/Network.');
+  }
+}
+function emitirNotaVenda(id){
+  let v=db.vendas.find(x=>String(x.id)===String(id));
+  if(!v)return;
+  if(v.status!=='Finalizada'){
+    iniciarPagamentoCaixa(id);
+    showSection('caixa');
+    alert('A NF será emitida no Caixa após escolher a forma de pagamento e confirmar o recebimento.');
+    return;
+  }
+  alert('NF já emitida para '+v.numero+'.');
+}
+
+function proximoCodigoProduto(){
+  let maior=0;
+  db.estoque.forEach(p=>{
+    let n=parseInt(String(p.codigo||'').replace(/\D/g,''),10);
+    if(!isNaN(n) && n>maior) maior=n;
+  });
+  return String(maior+1).padStart(11,'0');
+}
+function calcularMargemEstoque(){
+  let custo=Number(val('estoqueCusto')||0);
+  let venda=Number(val('estoqueVenda')||0);
+  let margemEl=document.getElementById('estoqueMargem');
+  if(!margemEl)return;
+  if(custo<=0 || venda<=0){margemEl.value='';return;}
+  let margem=((venda-custo)/custo)*100;
+  margemEl.value=margem.toFixed(2).replace('.',',')+'%';
+}
+function margemEstoqueNumero(custo,venda){
+  custo=Number(custo||0);
+  venda=Number(venda||0);
+  if(custo<=0 || venda<=0)return 0;
+  return Number((((venda-custo)/custo)*100).toFixed(2));
+}
+function editEstoque(id){
+  let p=db.estoque.find(x=>String(x.id)===String(id));
+  if(!p)return;
+  document.getElementById('estoqueEditId').value=p.id;
+  document.getElementById('estoqueCodigo').value=p.codigo;
+  document.getElementById('estoqueProduto').value=p.produto||'';
+  document.getElementById('estoqueQtd').value=p.qtd ?? '';
+  document.getElementById('estoqueCusto').value=p.custo ?? '';
+  document.getElementById('estoqueVenda').value=p.venda ?? '';
+  document.getElementById('estoqueFornecedor').value=p.fornecedor||'';
+  calcularMargemEstoque();
+}
+async function deleteEstoque(id){
+  let usadoOS=db.os.flatMap(o=>o.pecas||[]).some(p=>String(p.produtoId)===String(id));
+  let usadoVenda=db.vendas.some(v=>String(v.produtoId)===String(id));
+  if(usadoOS||usadoVenda)return alert('Não é possível excluir: produto já foi usado em O.S. ou venda.');
+  if(!confirm('Excluir produto do estoque?'))return;
+  try{
+    await excluirEstoqueSupabase(id);
+    await carregarEstoqueSupabase();
+    alert('Produto excluído do Supabase.');
+    audit('Excluiu produto do estoque');
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao excluir produto do estoque no Supabase.');
+  }
+}
+function cancelEstoqueEdit(){
+  let codEl=document.getElementById('estoqueCodigo');
+  if(codEl)codEl.value=proximoCodigoProduto();
+  document.getElementById('estoqueEditId').value='';
+  clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor']);
+  renderAll();
+}
+
+async function addEstoque(){
+  let editId=val('estoqueEditId');
+  let nome=val('estoqueProduto').trim();
+  if(!nome)return alert('Produto é obrigatório.');
+  let qtd=Number(val('estoqueQtd')||0);
+  let custo=Number(val('estoqueCusto')||0);
+  let venda=Number(val('estoqueVenda')||0);
+  let produtoDados={
+    codigo:val('estoqueCodigo') || proximoCodigoProduto(),
+    produto:nome,
+    qtd:qtd,
+    custo:custo,
+    venda:venda,
+    fornecedor:val('estoqueFornecedor'),
+    percentual_lucro:margemEstoqueNumero(custo,venda)
+  };
+  try{
+    if(editId){
+      await atualizarEstoqueSupabase(editId,produtoDados);
+      alert('Produto atualizado no Supabase.');
+      audit('Editou produto '+produtoDados.codigo);
+    }else{
+      await criarEstoqueSupabase(produtoDados);
+      alert('Produto salvo no Supabase com sucesso.');
+      audit('Adicionou estoque '+produtoDados.codigo);
+    }
+    await carregarEstoqueSupabase();
+    document.getElementById('estoqueEditId').value='';
+    clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor']);
+    let codEl=document.getElementById('estoqueCodigo');
+    if(codEl)codEl.value=proximoCodigoProduto();
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao salvar produto no Supabase.');
+  }
+}
+function addFinanceiro(){db.financeiro.push({id:Date.now(),data:todayISO(),tipo:val('finTipo'),desc:val('finDesc'),valor:Number(val('finValor'))});clear(['finDesc']);document.getElementById('finValor').value=0;audit('Lançou financeiro')}
+
+async function carregarFuncionariosSupabase(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/funcionarios?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.funcionarios=(arr||[]).map(f=>({
+    id:f.id,
+    nome:f.nome||'',
+    cpf:f.cpf||'',
+    telefone:f.telefone||'',
+    cargo:f.cargo||'Mecânico I',
+    salario:Number(f.salario||0),
+    comissao:Number(f.comissao_percentual||0),
+    dataAdmissao:f.data_admissao||'',
+    status:f.status||'Ativo'
+  }));
+}
+async function criarFuncionarioSupabase(f){
+  const resp=await fetch(`${SUPABASE_REST_URL}/funcionarios`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      nome:f.nome,
+      cpf:f.cpf||null,
+      telefone:f.telefone||null,
+      cargo:f.cargo||null,
+      salario:Number(f.salario||0),
+      comissao_percentual:Number(f.comissao||0),
+      data_admissao:f.dataAdmissao||null,
+      status:f.status||'Ativo'
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  return arr[0]||null;
+}
+async function atualizarFuncionarioSupabase(id,f){
+  const resp=await fetch(`${SUPABASE_REST_URL}/funcionarios?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'PATCH',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      nome:f.nome,
+      cpf:f.cpf||null,
+      telefone:f.telefone||null,
+      cargo:f.cargo||null,
+      salario:Number(f.salario||0),
+      comissao_percentual:Number(f.comissao||0),
+      data_admissao:f.dataAdmissao||null,
+      status:f.status||'Ativo'
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  return await resp.json();
+}
+async function excluirFuncionarioSupabase(id){
+  const resp=await fetch(`${SUPABASE_REST_URL}/funcionarios?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'DELETE',
+    headers:supabaseHeaders()
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+}
+
+function cargoNome(tipo){
+  if(!db.cargos) db.cargos={mecanico:'Mecânico',vendedor:'Vendedor'};
+  if(!db.chamados) db.chamados=[];
+  if(!db.financeiroOficina) db.financeiroOficina=[];
+  if(!db.caixa) db.caixa=[];
+  if(!db.users.some(u=>u.user==='caixa')) db.users.push({user:'caixa',pass:'0000',role:'Caixa'});
+  db.users.forEach(u=>{if(u.user==='caixa')u.role='Caixa'});
+  return db.cargos[tipo] || tipo;
+}
+function saveCargos(){
+  db.cargos={
+    mecanico:val('cargoMecanicoNome')||'Mecânico',
+    vendedor:val('cargoVendedorNome')||'Vendedor'
+  };
+  audit('Alterou nomes dos cargos');
+}
+
+async function saveFuncionario(){
+  let id=val('funcEditId');
+  let f={
+    nome:val('funcNome').trim(),
+    cpf:val('funcCpf').trim(),
+    telefone:val('funcTelefone').trim(),
+    cargo:val('funcCargo'),
+    salario:Number(val('funcSalario')||0),
+    comissao:Number(val('funcComissao')||0),
+    dataAdmissao:val('funcDataAdmissao'),
+    status:val('funcStatus')||'Ativo'
+  };
+  if(!f.nome)return alert('Nome obrigatório.');
+  try{
+    if(id){
+      await atualizarFuncionarioSupabase(id,f);
+      audit('Editou funcionário '+f.nome);
+    }else{
+      await criarFuncionarioSupabase(f);
+      audit('Cadastrou funcionário '+f.nome);
+    }
+    await carregarFuncionariosSupabase();
+    cancelFuncEdit();
+    renderAll();
+    alert('Funcionário salvo no Supabase.');
+  }catch(e){
+    console.error(e);
+    alert('Erro ao salvar funcionário. Confira Console/Network.');
+  }
+}
+function editFunc(id){
+  let f=func(id); if(!f.id)return;
+  document.getElementById('funcEditId').value=f.id;
+  document.getElementById('funcNome').value=f.nome||'';
+  document.getElementById('funcCpf').value=f.cpf||'';
+  document.getElementById('funcTelefone').value=f.telefone||'';
+  document.getElementById('funcCargo').value=f.cargo||'Mecânico I';
+  document.getElementById('funcSalario').value=f.salario||0;
+  document.getElementById('funcComissao').value=f.comissao||0;
+  document.getElementById('funcDataAdmissao').value=f.dataAdmissao||'';
+  document.getElementById('funcStatus').value=f.status||'Ativo';
+  document.getElementById('funcFormTitle').innerText='Editar funcionário';
+  showSection('funcionarios');
+}
+async function deleteFunc(id){
+  let used=db.os.flatMap(o=>o.mao||[]).some(m=>String(m.funcId)===String(id));
+  if(used)return alert('Não é possível excluir: esse mecânico já tem mão de obra lançada em O.S.');
+  if(!confirm('Excluir funcionário?'))return;
+  try{
+    await excluirFuncionarioSupabase(id);
+    await carregarFuncionariosSupabase();
+    audit('Excluiu funcionário');
+    renderAll();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao excluir funcionário.');
+  }
+}
+function cancelFuncEdit(){
+  document.getElementById('funcEditId').value='';
+  clear(['funcNome','funcCpf','funcTelefone','funcDataAdmissao']);
+  document.getElementById('funcCargo').value='Mecânico I';
+  document.getElementById('funcSalario').value=0;
+  document.getElementById('funcComissao').value=0;
+  document.getElementById('funcStatus').value='Ativo';
+  document.getElementById('funcFormTitle').innerText='Cadastro de funcionário';
+}
+
+function salvarLogoEmpresa(event){
+  let file=event.target.files && event.target.files[0];
+  if(!file)return;
+  if(!file.type.startsWith('image/')){
+    alert('Selecione uma imagem PNG ou JPG.');
+    return;
+  }
+  if(file.size > 2 * 1024 * 1024){
+    alert('A imagem deve ter no máximo 2 MB.');
+    return;
+  }
+  let reader=new FileReader();
+  reader.onload=function(e){
+    db.empresa.logo=e.target.result;
+    audit('Atualizou logo da empresa');
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveEmpresa(){db.empresa={nome:val('empNome'),doc:val('empDoc'),tel:val('empTel'),end:val('empEnd'),logo:db.empresa.logo||''};audit('Alterou dados da empresa')}
+function changePlan(){db.plan=val('planSelect');buildNav();let active=document.querySelector('.section.active');if(active&&!sectionAllowed(active.id))showSection('dashboard');audit('Alterou plano para '+db.plan)}
+function dentroPeriodo(data){
+  let ini=val('finInicio'), fim=val('finFim');
+  if(ini && data<ini)return false;
+  if(fim && data>fim)return false;
+  return true;
+}
+function limparFiltroFinanceiro(){document.getElementById('finInicio').value='';document.getElementById('finFim').value='';renderAll()}
+function osTotal(o){let totalItens=(o.pecas||[]).reduce((s,p)=>s+Number(p.total||0),0)+(o.mao||[]).reduce((s,m)=>s+Number(m.valor||0),0);return totalItens || Number(o.valorTotal||0)}
+
+function limparFormUsuarioSistema(){
+  clear(['usuarioSistemaId','usuarioSistemaNome','usuarioSistemaEmail','usuarioSistemaSenha']);
+  const p=document.getElementById('usuarioSistemaPerfil'); if(p)p.value='atendente';
+  const a=document.getElementById('usuarioSistemaAtivo'); if(a)a.value='true';
+}
+function editarUsuarioSistema(id){
+  const u=(db.usuariosSistema||[]).find(x=>String(x.id)===String(id));
+  if(!u)return alert('Usuário não encontrado.');
+  document.getElementById('usuarioSistemaId').value=u.id;
+  document.getElementById('usuarioSistemaNome').value=u.nome||'';
+  document.getElementById('usuarioSistemaEmail').value=u.email||'';
+  document.getElementById('usuarioSistemaSenha').value=u.senha||'';
+  document.getElementById('usuarioSistemaPerfil').value=roleToPerfil(u.perfil||'atendente');
+  document.getElementById('usuarioSistemaAtivo').value=String(Boolean(u.ativo));
+  showSection('usuarios');
+}
+async function salvarUsuarioSistema(){
+  try{
+    if(!current || current.role!=='ADM')return alert('Apenas ADM pode gerenciar usuários.');
+    const id=val('usuarioSistemaId');
+    const nome=val('usuarioSistemaNome').trim();
+    const email=val('usuarioSistemaEmail').trim();
+    const senha=val('usuarioSistemaSenha').trim();
+    const perfil=val('usuarioSistemaPerfil');
+    const ativo=val('usuarioSistemaAtivo')==='true';
+    if(!nome||!email||!senha)return alert('Nome, login e senha são obrigatórios.');
+    const dados={oficina_id:currentOficinaId,nome,email,senha,perfil,ativo};
+    if(id){
+      dados.primeiro_acesso=true;
+      await atualizarUsuarioSistemaSupabase(id,dados);
+      alert('Usuário atualizado. No próximo login, ele deverá alterar login/senha.');
+    }else{
+      dados.primeiro_acesso=true;
+      await criarUsuarioSistemaSupabase(dados);
+      alert('Usuário criado. No primeiro login, ele deverá alterar login/senha.');
+    }
+    limparFormUsuarioSistema();
+    await carregarUsuariosSistemaSupabase();
+    renderAll();
+  }catch(e){console.error(e);alert('Erro ao salvar usuário. Verifique se o login já não existe.');}
+}
+async function alternarUsuarioSistema(id,ativo){
+  try{
+    if(!current || current.role!=='ADM')return alert('Apenas ADM pode gerenciar usuários.');
+    if(String(id)===String(currentSupabaseUser?.id) && !ativo)return alert('Você não pode desativar seu próprio usuário.');
+    await atualizarUsuarioSistemaSupabase(id,{ativo});
+    await carregarUsuariosSistemaSupabase();renderAll();
+  }catch(e){console.error(e);alert('Erro ao alterar status do usuário.');}
+}
+async function redefinirSenhaUsuarioSistema(id){
+  try{
+    const nova=prompt('Digite a nova senha provisória:', '0000');
+    if(!nova)return;
+    await atualizarUsuarioSistemaSupabase(id,{senha:nova,primeiro_acesso:true});
+    await carregarUsuariosSistemaSupabase();renderAll();
+    alert('Senha redefinida. O usuário deverá alterar login/senha no próximo acesso.');
+  }catch(e){console.error(e);alert('Erro ao redefinir senha.');}
+}
+async function buscarDocumentoEmpresa(){
+  let doc=val('empDoc').replace(/\D/g,'');
+  if(!doc)return;
+  if(doc.length===14){
+    try{
+      let r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+doc);
+      let d=await r.json();
+      if(d && !d.message){
+        document.getElementById('empNome').value=d.razao_social||d.nome_fantasia||val('empNome');
+        document.getElementById('empTel').value=d.ddd_telefone_1||val('empTel');
+        let end=[d.logradouro,d.numero,d.bairro,d.municipio,d.uf].filter(Boolean).join(', ');
+        if(end)document.getElementById('empEnd').value=end;
+        return;
+      }
+    }catch(e){}
+    alert('Não foi possível puxar os dados do CNPJ agora. Você pode preencher manualmente ou deixar em branco.');
+  }else if(doc.length===11){
+    alert('CPF não possui consulta pública completa. Você pode preencher manualmente ou deixar em branco.');
+  }else{
+    alert('CPF/CNPJ inválido ou incompleto. O preenchimento é opcional.');
+  }
+}
+
+
+function updatePlanUI(){
+  let key=planKey();
+  let pro=key==='pro';
+  let autoBox=document.getElementById('placaAutoBox');
+  let note=document.getElementById('placaManualNote');
+  let readonly=!pro;
+  ['motoMarca','motoModelo','motoCor','motoAno'].forEach(id=>{let e=document.getElementById(id);if(e){e.readOnly=pro;e.placeholder=pro?'Preenchido pela placa':'Preencha manualmente';}});
+  let placa=document.getElementById('motoPlaca');if(placa)placa.onblur=pro?puxarDadosMotoPorPlaca:null;
+  if(autoBox)autoBox.classList.toggle('locked',!pro);
+  if(note)note.innerHTML=pro?'Consulta automática de placa liberada no Plano Pro.':'Seu plano usa cadastro manual da moto. A consulta automática de placa é exclusiva do Plano Pro.';
+  let pai=document.getElementById('planAccessInfo');
+  if(pai){
+    let label=key==='pro'?'Plano Pro: acesso total ao MotoSOS Gestão.':key==='oficina'?'Plano Oficina: acesso a tudo, exceto Funcionários e Contato Pro.':'Plano Start: Dashboard, Clientes, Motos, O.S., Vendas e Estoque.';
+    pai.innerHTML=label;
+  }
+}
+function planLimits(){
+  let p=(db.plan||'Start').toLowerCase();
+  if(p.includes('pro'))return {adm:3,atendimento:10,nome:'Pro'};
+  if(p.includes('oficina'))return {adm:2,atendimento:5,nome:'Oficina'};
+  return {adm:1,atendimento:2,nome:'Start'};
+}
+function planoDeviceText(role){
+  let l=planLimits();
+  return role==='ADM'?`${l.adm} instalação(ões) ADM em PC ou celular`:`${l.atendimento} instalação(ões) de vendedor/atendimento em PCs ou celulares separados`;
+}
+function isPlanoPro(){return planKey()==='pro'}
+function abrirChamadoPro(){
+  if(!isPlanoPro())return alert('A aba de contato é liberada automaticamente apenas no plano Pro.');
+  let assunto=val('chamadoAssunto').trim(), desc=val('chamadoDesc').trim();
+  if(!assunto||!desc)return alert('Informe o assunto e a descrição do chamado.');
+  db.chamados.unshift({id:Date.now(),data:new Date().toLocaleString('pt-BR'),assunto,desc,prioridade:val('chamadoPrioridade'),status:'Aberto'});
+  clear(['chamadoAssunto','chamadoDesc']);
+  audit('Abriu chamado Pro: '+assunto);
+}
+
+function financeiroResumo(){
+  let osConcluidas=db.os.filter(o=>o.status==='Entregue' && o.entregaData && dentroPeriodo(o.entregaData));
+  let vendasPeriodo=db.vendas.filter(v=>dentroPeriodo(v.data));
+  let manuaisPeriodo=db.financeiro.filter(f=>dentroPeriodo(f.data));
+  let entradas=manuaisPeriodo.filter(f=>f.tipo==='Entrada');
+  let saidas=manuaisPeriodo.filter(f=>f.tipo==='Saída');
+  let totalOS=osConcluidas.reduce((s,o)=>s+osTotal(o),0);
+  let totalVendas=vendasPeriodo.reduce((s,v)=>s+v.total,0);
+  let totalEntradas=entradas.reduce((s,f)=>s+f.valor,0);
+  let totalSaidas=saidas.reduce((s,f)=>s+f.valor,0);
+  let totalBruto=totalOS+totalVendas+totalEntradas;
+  return {osConcluidas,vendasPeriodo,entradas,saidas,totalOS,totalVendas,totalEntradas,totalSaidas,totalBruto};
+}
+function excelEscape(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function exportarFinanceiroExcel(){
+  let r=financeiroResumo();
+  let periodo=(val('finInicio')||'inicio')+' a '+(val('finFim')||'hoje');
+  let rows=[];
+  rows.push(`<tr><th colspan="5">Relatório financeiro MotoSOS - ${excelEscape(periodo)}</th></tr>`);
+  rows.push('<tr><th>Categoria</th><th>Data</th><th>Documento</th><th>Descrição</th><th>Valor</th></tr>');
+  r.osConcluidas.forEach(o=>rows.push(`<tr><td>O.S. concluída</td><td>${brDate(o.entregaData)}</td><td>${excelEscape(o.numero)}</td><td>${excelEscape(clienteName(o.clienteId)+' - '+motoName(o.motoId))}</td><td>${osTotal(o).toFixed(2)}</td></tr>`));
+  r.vendasPeriodo.forEach(v=>rows.push(`<tr><td>Valor recebido / venda</td><td>${brDate(v.data)}</td><td>${excelEscape(v.numero)}</td><td>${excelEscape(v.produto)}</td><td>${Number(v.total||0).toFixed(2)}</td></tr>`));
+  r.entradas.forEach(f=>rows.push(`<tr><td>Entrada manual</td><td>${brDate(f.data)}</td><td>-</td><td>${excelEscape(f.desc)}</td><td>${Number(f.valor||0).toFixed(2)}</td></tr>`));
+  r.saidas.forEach(f=>rows.push(`<tr><td>Saída de caixa</td><td>${brDate(f.data)}</td><td>-</td><td>${excelEscape(f.desc)}</td><td>-${Number(f.valor||0).toFixed(2)}</td></tr>`));
+  rows.push(`<tr><th colspan="4">Total O.S. concluídas</th><th>${r.totalOS.toFixed(2)}</th></tr>`);
+  rows.push(`<tr><th colspan="4">Valores recebidos</th><th>${(r.totalVendas+r.totalEntradas).toFixed(2)}</th></tr>`);
+  rows.push(`<tr><th colspan="4">Valores de saída</th><th>${r.totalSaidas.toFixed(2)}</th></tr>`);
+  rows.push(`<tr><th colspan="4">Total bruto</th><th>${r.totalBruto.toFixed(2)}</th></tr>`);
+  let html=`<html><head><meta charset="UTF-8"></head><body><table border="1">${rows.join('')}</table></body></html>`;
+  let blob=new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8;'});
+  let a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='motosos_financeiro_'+todayISO()+'.xls';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+
+function relDentroPeriodo(data){
+  if(!data)return true;
+  let ini=val('relInicio'), fim=val('relFim');
+  if(ini && data<ini)return false;
+  if(fim && data>fim)return false;
+  return true;
+}
+function limparFiltroRelatorios(){
+  const a=document.getElementById('relInicio'); if(a)a.value='';
+  const b=document.getElementById('relFim'); if(b)b.value='';
+  renderAll();
+}
+function relatorioResumo(){
+  const vendas=(db.vendas||[]).filter(v=>relDentroPeriodo(v.data));
+  const os=(db.os||[]).filter(o=>relDentroPeriodo(o.data||o.criado_em));
+  const clientes=(db.clientes||[]);
+  const motos=(db.motos||[]);
+  const estoque=(db.estoque||[]);
+  const financeiro=(db.financeiroOficina||[]).filter(f=>relDentroPeriodo(f.data));
+  const caixaMov=(db.caixa||[]).filter(c=>relDentroPeriodo(c.data));
+
+  const totalVendas=vendas.reduce((s,v)=>s+Number(v.total||0),0);
+  const entradasFin=financeiro.filter(f=>String(f.tipo||'').toLowerCase().includes('entrada')).reduce((s,f)=>s+Number(f.valor||0),0);
+  const saidasFin=financeiro.filter(f=>String(f.tipo||'').toLowerCase().includes('saída')||String(f.tipo||'').toLowerCase().includes('saida')).reduce((s,f)=>s+Number(f.valor||0),0);
+  const entradasCaixa=caixaMov.filter(c=>sinalCaixa(c.tipo)>0).reduce((s,c)=>s+Number(c.valor||0),0);
+  const saidasCaixa=caixaMov.filter(c=>sinalCaixa(c.tipo)<0).reduce((s,c)=>s+Number(c.valor||0),0);
+  const faturamento=entradasFin || totalVendas;
+  const saldoCaixa=entradasFin+entradasCaixa-saidasFin-saidasCaixa;
+  const valorEstoque=estoque.reduce((s,p)=>s+(Number(p.qtd||0)*Number(p.venda||0)),0);
+  return {vendas,os,clientes,motos,estoque,financeiro,caixaMov,totalVendas,entradasFin,saidasFin,entradasCaixa,saidasCaixa,faturamento,saldoCaixa,valorEstoque};
+}
+function renderRelatorios(){
+ try{
+  if(!document.getElementById('relFaturamento'))return;
+  const r=relatorioResumo();
+  const osAbertas=r.os.filter(o=>String(o.status||'')!=='Entregue').length;
+  document.getElementById('relFaturamento').innerText=money(r.faturamento);
+  document.getElementById('relSaldoCaixa').innerText=money(r.saldoCaixa);
+  document.getElementById('relQtdVendas').innerText=r.vendas.length;
+  document.getElementById('relOsAbertas').innerText=osAbertas;
+  document.getElementById('relQtdClientes').innerText=r.clientes.length;
+  document.getElementById('relQtdMotos').innerText=r.motos.length;
+  document.getElementById('relProdutosEstoque').innerText=r.estoque.length;
+  document.getElementById('relValorEstoque').innerText=money(r.valorEstoque);
+
+  const porProduto={};
+  r.vendas.forEach(v=>{
+    const nome=v.produto||v.produto_descricao||v.produtoDescricao||'Produto';
+    if(!porProduto[nome])porProduto[nome]={qtd:0,total:0};
+    porProduto[nome].qtd+=Number(v.qtd||v.quantidade||0);
+    porProduto[nome].total+=Number(v.total||v.valor_total||0);
+  });
+  const produtosRows=Object.entries(porProduto).sort((a,b)=>b[1].qtd-a[1].qtd).slice(0,10).map(([nome,d])=>[nome,d.qtd,money(d.total)]);
+  table('relProdutosTable',['Produto','Qtd vendida','Total'],produtosRows.length?produtosRows:[['Nenhuma venda no período','-','-']]);
+
+  table('relFinanceiroTable',['Indicador','Valor'],[
+    ['Entradas financeiras',money(r.entradasFin)],
+    ['Saídas financeiras',money(r.saidasFin)],
+    ['Suprimentos de caixa',money(r.entradasCaixa)],
+    ['Sangrias/saídas de caixa',money(r.saidasCaixa)],
+    ['Saldo do período',money(r.saldoCaixa)]
+  ]);
+
+  table('relVendasTable',['Nº','Data','Cliente','Produto','Qtd','Total','Status'],r.vendas.slice(0,20).map(v=>[
+    v.numero||v.numero_venda||'-',brDate(v.data),clienteName(v.clienteId),v.produto||v.produto_descricao||'-',v.qtd||v.quantidade||'-',money(v.total||v.valor_total),v.status||'-'
+  ]));
+
+  table('relOsTable',['Nº','Data','Cliente','Moto','Status','Problema'],r.os.slice(0,20).map(o=>[
+    o.numero||o.numero_os||'-',brDate(o.data||o.criado_em),clienteName(o.clienteId),motoName(o.motoId),o.status||'-',o.problema||o.problema_relatado||'-'
+  ]));
+ }catch(e){console.error('Erro renderRelatorios:',e);}
+}
+function exportarRelatoriosExcel(){
+  const r=relatorioResumo();
+  const periodo=(val('relInicio')||'inicio')+' a '+(val('relFim')||'hoje');
+  const rows=[];
+  rows.push(`<tr><th colspan="7">Relatórios MotoSOS - ${excelEscape(periodo)}</th></tr>`);
+  rows.push(`<tr><th>Faturamento</th><td colspan="6">${r.faturamento.toFixed(2)}</td></tr>`);
+  rows.push(`<tr><th>Saldo caixa</th><td colspan="6">${r.saldoCaixa.toFixed(2)}</td></tr>`);
+  rows.push(`<tr><th>Vendas</th><td colspan="6">${r.vendas.length}</td></tr>`);
+  rows.push(`<tr><th>Clientes</th><td colspan="6">${r.clientes.length}</td></tr>`);
+  rows.push('<tr><th colspan="7">Vendas do período</th></tr>');
+  rows.push('<tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Total</th><th>Status</th></tr>');
+  r.vendas.forEach(v=>rows.push(`<tr><td>${excelEscape(v.numero||v.numero_venda||'')}</td><td>${brDate(v.data)}</td><td>${excelEscape(clienteName(v.clienteId))}</td><td>${excelEscape(v.produto||v.produto_descricao||'')}</td><td>${v.qtd||v.quantidade||''}</td><td>${Number(v.total||v.valor_total||0).toFixed(2)}</td><td>${excelEscape(v.status||'')}</td></tr>`));
+  rows.push('<tr><th colspan="7">Financeiro</th></tr>');
+  rows.push('<tr><th>Data</th><th>Tipo</th><th>Origem</th><th colspan="3">Descrição</th><th>Valor</th></tr>');
+  r.financeiro.forEach(f=>rows.push(`<tr><td>${brDate(f.data)}</td><td>${excelEscape(f.tipo)}</td><td>${excelEscape(f.origem)}</td><td colspan="3">${excelEscape(f.desc)}</td><td>${Number(f.valor||0).toFixed(2)}</td></tr>`));
+  const html=`<html><head><meta charset="UTF-8"></head><body><table border="1">${rows.join('')}</table></body></html>`;
+  const blob=new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='motosos_relatorios_'+todayISO()+'.xls';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+function renderAll(){
+ try{
+ updatePlanUI();
+ document.getElementById('currentPlan').innerText=db.plan;
+ document.getElementById('mClientes').innerText=db.clientes.length;document.getElementById('mMotos').innerText=db.motos.length;document.getElementById('mOs').innerText=db.os.filter(o=>o.status!=='Entregue').length;document.getElementById('mVendas').innerText=db.vendas.length;
+ fillSelect('motoCliente',db.clientes.map(c=>[c.id,c.nome]));
+ fillSelect('vendaCliente',db.clientes.map(c=>[c.id,c.nome]));
+ fillSelect('vendaVendedor',db.funcionarios.filter(f=>String(f.status||'Ativo')==='Ativo').map(f=>[f.id,`${f.nome} - ${f.cargo||''}`]));
+ fillSelect('osVendedor',db.funcionarios.filter(f=>String(f.status||'Ativo')==='Ativo').map(f=>[f.id,`${f.nome} - ${f.cargo||''}`]));
+ let estoqueDisponivel=db.estoque.filter(p=>Number(p.qtd)>0).map(p=>[p.id,`${p.codigo} - ${p.produto} | ${money(p.venda)} | Est: ${p.qtd}`]);fillSelect('vendaProduto',estoqueDisponivel);fillSelect('osPecaSelect',estoqueDisponivel);fillSelect('osMecanico',db.funcionarios.filter(f=>String(f.status||'Ativo')==='Ativo' && String(f.cargo||'').toLowerCase().includes('mecânico')).map(f=>[f.id,`${f.nome} (${f.comissao}% comissão)`]));
+ table('clientesTable',['Nome','Telefone','CPF/CNPJ','Cidade','Ações'],db.clientes.map(c=>[c.nome,c.telefone,c.doc||'-',c.cidade||'-',`<button class="small blue" onclick="editCliente(${c.id})">Editar</button> <button class="small secondary" onclick="deleteCliente(${c.id})">Excluir</button>`]));
+ table('motosTable',['Placa','Marca','Modelo','Cor','Ano','Cliente','Ações'],db.motos.map(m=>[m.placa,m.marca,m.modelo,m.cor,m.ano,clienteName(m.clienteId),`<button class="small secondary" onclick="deleteMoto(${m.id})">Excluir</button>`]));
+ table('osTable',['Nº','Data','Cliente','Moto','Vendedor','Total','Status','Ações'],db.os.map(o=>[o.numero,brDate(o.data),clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money(osTotal(o)),`<span class="badge yellow">${o.status}</span>`,`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button> <button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`]));
+ let aguardando=db.os.filter(o=>o.status==='Aguardando aprovação');
+ table('orcamentosTable',['O.S.','Cliente','Moto','Vendedor','Peças','Mão de obra','Total','Ações'],aguardando.map(o=>[o.numero,clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money((o.pecas||[]).reduce((s,p)=>s+p.total,0)),money((o.mao||[]).reduce((s,m)=>s+m.valor,0)),money(osTotal(o)),`<button class="small blue" onclick="startEditOS(${o.id});showSection('os')">Editar O.S.</button>`]));
+ table('vendasTable',['Nº','Data','Cliente','Vendedor','Produto','Qtd','Total','Pagamento','Status','Caixa/NF'],db.vendas.map(v=>[
+   v.numero,
+   brDate(v.data),
+   clienteName(v.clienteId),
+   v.vendedorNome||func(v.vendedorId).nome||'-',
+   `${v.codigo? v.codigo+' - ' : ''}${v.produto}`,
+   v.qtd,
+   money(v.total),
+   v.formaPagamento||'-',
+   v.status==='Finalizada'?'<span class="badge green">Pago</span>':'<span class="badge yellow">Aguardando caixa</span>',
+   v.status==='Finalizada'?'<span class="badge green">NF emitida</span>':`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id});showSection('caixa')">Receber no caixa</button>`
+ ]));
+ table('estoqueTable',['Código','Produto','Qtd','Custo','Venda','Lucro','Fornecedor','Ações'],db.estoque.map(p=>{
+   let margem=(Number(p.custo)>0 && Number(p.venda)>0)?(((Number(p.venda)-Number(p.custo))/Number(p.custo))*100).toFixed(2).replace('.',',')+'%':'-';
+   return [p.codigo,p.produto,p.qtd,money(p.custo),money(p.venda),margem,p.fornecedor||'-',`<button class="small blue" onclick="editEstoque(${p.id})">Editar</button> <button class="small secondary" onclick="deleteEstoque(${p.id})">Excluir</button>`]
+ }));
+ let codEl=document.getElementById('estoqueCodigo');
+ if(codEl && !codEl.value) codEl.value=proximoCodigoProduto();
+ let movs=[];
+ let online=(db.financeiroOficina||[]).filter(f=>dentroPeriodo(f.data));
+ online.forEach(f=>movs.push([
+   brDate(f.data),
+   `${f.tipo||'-'}${f.origem? ' / '+f.origem : ''}`,
+   `${f.desc||'-'}${f.formaPagamento? ' | '+f.formaPagamento : ''}`,
+   money((f.tipo==='Saída'||f.tipo==='Saida')?-f.valor:f.valor)
+ ]));
+ let manuais=(db.financeiro||[]).filter(f=>dentroPeriodo(f.data));
+ manuais.forEach(f=>movs.push([brDate(f.data),f.tipo,f.desc,money(f.tipo==='Saída'?-f.valor:f.valor)]));
+ table('financeiroTable',['Data','Tipo','Descrição','Valor'],movs);
+ let funcRows=db.funcionarios.map(f=>{let mao=db.os.flatMap(o=>o.mao||[]).filter(m=>String(m.funcId)===String(f.id));let total=mao.reduce((s,m)=>s+m.valor,0);let com=mao.reduce((s,m)=>s+m.comissaoValor,0);return[f.nome,f.cpf||'-',f.telefone||'-',f.cargo||'-',money(f.salario||0),(f.comissao||0)+'%',f.dataAdmissao?brDate(f.dataAdmissao):'-',f.status||'Ativo',money(total),money(com),`<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`]});table('funcTable',['Nome','CPF','Telefone','Cargo','Salário','Comissão','Admissão','Status','M.O. feita','Comissão a pagar','Ações'],funcRows);
+ let usuariosSistema=(db.usuariosSistema||[]);
+ table('usersTable',['ID','Nome','Login','Perfil','Status','Primeiro acesso','Ações'],usuariosSistema.map(u=>[
+   u.id,
+   u.nome||'-',
+   u.email||'-',
+   mapPerfilToRole(u.perfil),
+   u.ativo?'<span class="badge green">Ativo</span>':'<span class="badge red">Inativo</span>',
+   u.primeiro_acesso?'<span class="badge yellow">Sim</span>':'Não',
+   `<div class="user-actions"><button class="small blue" onclick="editarUsuarioSistema(${u.id})">Editar</button><button class="small secondary" onclick="redefinirSenhaUsuarioSistema(${u.id})">Redefinir senha</button><button class="small ${u.ativo?'secondary':'green'}" onclick="alternarUsuarioSistema(${u.id},${!u.ativo})">${u.ativo?'Desativar':'Ativar'}</button></div>`
+ ]));
+ table('auditTable',['Data','Usuário','Ação'],db.audit.map(a=>[a.data,a.user,a.msg]));
+ document.getElementById('empNome').value=db.empresa.nome||'';document.getElementById('empDoc').value=db.empresa.doc||'';document.getElementById('empTel').value=db.empresa.tel||'';document.getElementById('empEnd').value=db.empresa.end||'';
+ let logoPrev=document.getElementById('empLogoPreview');
+ if(logoPrev){
+   logoPrev.innerHTML=db.empresa.logo?`<div class="muted">Logo atual:</div><img src="${db.empresa.logo}" style="max-width:120px;max-height:80px;background:white;border-radius:8px;padding:6px;margin-top:6px">`:'Nenhuma logo cadastrada.';
+ }
+ let ps=document.getElementById('planSelect'); if(ps)ps.value=db.plan;
+ let pr=document.getElementById('planoResumo'); if(pr)pr.innerHTML=`<b>Plano atual:</b> ${db.plan||'Start'}<br><b>Oficina:</b> ${db.empresa.nome||'MotoSOS Gestão'}`;
+ let cm=document.getElementById('cargoMecanicoNome'); if(cm) cm.value=cargoNome('mecanico');
+ let cv=document.getElementById('cargoVendedorNome'); if(cv) cv.value=cargoNome('vendedor');
+ let vendaTotal=db.vendas.reduce((s,v)=>s+v.total,0);let maoTotal=db.os.flatMap(o=>o.mao||[]).reduce((s,m)=>s+m.valor,0);let comTotal=db.os.flatMap(o=>o.mao||[]).reduce((s,m)=>s+m.comissaoValor,0);let ent=db.financeiro.filter(f=>f.tipo==='Entrada').reduce((s,f)=>s+f.valor,0);let sai=db.financeiro.filter(f=>f.tipo==='Saída').reduce((s,f)=>s+f.valor,0);
+ document.getElementById('rVendas').innerText=money(vendaTotal);document.getElementById('rMao').innerText=money(maoTotal);document.getElementById('rComissao').innerText=money(comTotal);document.getElementById('rSaldo').innerText=money(ent-sai);
+ let vendasPeriodo=(db.vendas||[]).filter(v=>dentroPeriodo(v.data));
+ let finVendasTotal=vendasPeriodo.reduce((s,v)=>s+Number(v.total||0),0);
+ let finOsTotalGeral=db.os.filter(o=>o.entregaData && dentroPeriodo(o.entregaData)).reduce((s,o)=>s+osTotal(o),0);
+ let finOsAbertas=db.os.filter(o=>o.status!=='Entregue' && dentroPeriodo(o.data)).reduce((s,o)=>s+osTotal(o),0);
+ let finEnt=manuais.filter(f=>f.tipo==='Entrada').reduce((s,f)=>s+Number(f.valor||0),0);
+ let finSai=manuais.filter(f=>f.tipo==='Saída').reduce((s,f)=>s+Number(f.valor||0),0);
+ let onlineEntradas=online.filter(f=>String(f.tipo||'').toLowerCase().includes('entrada')).reduce((s,f)=>s+Number(f.valor||0),0);
+ let onlineSaidas=online.filter(f=>String(f.tipo||'').toLowerCase().includes('saída')||String(f.tipo||'').toLowerCase().includes('saida')).reduce((s,f)=>s+Number(f.valor||0),0);
+ let caixaPeriodo=(db.caixa||[]).filter(c=>dentroPeriodo(c.data));
+ let caixaSaidas=caixaPeriodo.filter(c=>sinalCaixa(c.tipo)<0).reduce((s,c)=>s+Number(c.valor||0),0);
+ let caixaEntradas=caixaPeriodo.filter(c=>sinalCaixa(c.tipo)>0).reduce((s,c)=>s+Number(c.valor||0),0);
+ let elFinGeral=document.getElementById('finGeralTotal'); if(elFinGeral)elFinGeral.innerText=money(finVendasTotal+finOsTotalGeral);
+ let foa=document.getElementById('finOsAbertasTotal'); if(foa)foa.innerText=money(finOsAbertas);
+ let fe=document.getElementById('finEntradasTotal'); if(fe)fe.innerText=money(onlineEntradas+finEnt+caixaEntradas);
+ let fsa=document.getElementById('finSaidasTotal'); if(fsa)fsa.innerText=money(finSai+caixaSaidas);
+ let limits=planLimits();
+ let qtdAdm=db.users.filter(u=>u.role==='ADM').length, qtdAt=db.users.filter(u=>u.role==='Atendimento').length;
+ let pui=document.getElementById('planUserInfo'); if(pui)pui.innerHTML=`Plano <b>${limits.nome}</b>: permite <b>${limits.adm} instalação(ões) ADM</b> em PC ou celular e <b>${limits.atendimento} instalação(ões) de vendedor/atendimento</b> em aparelhos separados. Usuários cadastrados agora: <b>${qtdAdm} ADM</b> e <b>${qtdAt} Atendimento</b>.`; let ds=document.getElementById('deviceSummary'); if(ds)ds.innerHTML=`<div class="card"><div class="muted">Instalações ADM usadas</div><div class="metric">${qtdAdm}/${limits.adm}</div></div><div class="card"><div class="muted">Instalações vendedor/atendimento usadas</div><div class="metric">${qtdAt}/${limits.atendimento}</div></div>`;
+ table('chamadosTable',['Data','Assunto','Prioridade','Status'],(db.chamados||[]).map(c=>[c.data,c.assunto,c.prioridade,c.status]));
+ const vendasPendentes=(db.vendas||[]).filter(v=>v.status!=='Finalizada');
+ table('caixaPendentesTable',['Nº','Data','Cliente','Produto','Qtd','Total','Status','Ação'],vendasPendentes.map(v=>[
+   v.numero,brDate(v.data),clienteName(v.clienteId),v.produto,v.qtd,money(v.total),'<span class="badge yellow">Aguardando pagamento</span>',`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id})">Receber / NF</button>`
+ ]));
+ renderRelatorios();
+ renderCaixa();
+ atualizarCardsFinanceiroECaixa();
+ }catch(e){console.error('Erro renderAll:',e);}
+}
+
+
+function iniciarPagamentoCaixa(id){
+  const v=db.vendas.find(x=>String(x.id)===String(id));
+  if(!v)return alert('Venda não encontrada.');
+  if(v.status==='Finalizada')return alert('Venda já está paga.');
+  document.getElementById('caixaPagamentoTipo').value='Venda';
+  document.getElementById('caixaPagamentoVendaId').value=v.id;
+  document.getElementById('caixaPagamentoOsId').value='';
+  document.getElementById('caixaPagamentoInfo').innerHTML=`<b>${v.numero}</b><br>Tipo: Venda<br>Cliente: ${clienteName(v.clienteId)}<br>Produto: ${v.produto}<br>Qtd: ${v.qtd}<br><div class="caixa-total">${money(v.total)}</div><div class="row"><button class="secondary small" onclick="alert('Prévia da NF da venda ${v.numero}')">NF</button></div>`;
+  document.getElementById('caixaPagamentoBox').style.display='block';
+}
+function iniciarPagamentoOS(id){
+  const o=db.os.find(x=>String(x.id)===String(id));
+  if(!o)return alert('O.S. não encontrada.');
+  const total=osTotal(o);
+  if(total<=0)return alert('Esta O.S. não possui valor de peças ou mão de obra. Edite a O.S. e lance os itens antes de receber.');
+  document.getElementById('caixaPagamentoTipo').value='OS';
+  document.getElementById('caixaPagamentoVendaId').value='';
+  document.getElementById('caixaPagamentoOsId').value=o.id;
+  document.getElementById('caixaPagamentoInfo').innerHTML=`<b>${o.numero}</b><br>Tipo: Ordem de Serviço<br>Cliente: ${clienteName(o.clienteId)}<br>Moto: ${motoName(o.motoId)}<br>Status: ${o.status}<br><div class="caixa-total">${money(total)}</div><div class="row"><button class="secondary small" onclick="openPrintOS(${o.id})">Imprimir O.S.</button><button class="secondary small" onclick="alert('Prévia da NF da O.S. ${o.numero}')">NF</button></div>`;
+  document.getElementById('caixaPagamentoBox').style.display='block';
+}
+function cancelarPagamentoCaixa(){
+  document.getElementById('caixaPagamentoTipo').value='';
+  document.getElementById('caixaPagamentoVendaId').value='';
+  document.getElementById('caixaPagamentoOsId').value='';
+  document.getElementById('caixaPagamentoBox').style.display='none';
+  document.getElementById('caixaPagamentoInfo').innerHTML='Selecione uma venda ou O.S. pendente.';
+}
+async function finalizarVendaNoCaixa(){
+  const tipo=val('caixaPagamentoTipo');
+  const forma=val('caixaFormaPagamento')||'PIX';
+  if(tipo==='Venda'){
+    const id=val('caixaPagamentoVendaId');
+    if(!id)return alert('Selecione uma venda pendente.');
+    const v=db.vendas.find(x=>String(x.id)===String(id));
+    if(!v)return alert('Venda não encontrada.');
+    try{
+      await atualizarVendaSupabase(id,{status:'Finalizada',forma_pagamento:forma});
+      await carregarVendasSupabase();
+      await carregarFinanceiroOficinaSupabase();
+      await carregarCaixaSupabase();
+      cancelarPagamentoCaixa();
+      renderAll();
+      alert('Pagamento da venda confirmado no caixa e NF emitida.');
+    }catch(e){console.error(e);alert('Erro ao finalizar pagamento da venda. Confira Console/Network.');}
+    return;
+  }
+  if(tipo==='OS'){
+    const id=val('caixaPagamentoOsId');
+    const o=db.os.find(x=>String(x.id)===String(id));
+    if(!o)return alert('O.S. não encontrada.');
+    const total=osTotal(o);
+    try{
+      await atualizarOSSupabase({...o,status:'Entregue'});
+      await criarFinanceiroOficinaSupabase({origem:'OS',origemId:o.id,tipo:'Entrada',descricao:`O.S. ${o.numero} - ${clienteName(o.clienteId)}`,valor:total,formaPagamento:forma,status:'Recebido'});
+      await criarCaixaSupabase({tipo:'Entrada',descricao:`O.S. ${o.numero} - ${clienteName(o.clienteId)}`,valor:total,origem:'OS',origemId:o.id});
+      await carregarOSSupabase();
+      await carregarFinanceiroOficinaSupabase();
+      await carregarCaixaSupabase();
+      cancelarPagamentoCaixa();
+      renderAll();
+      alert('Pagamento da O.S. confirmado no caixa e NF emitida.');
+    }catch(e){console.error(e);alert('Erro ao finalizar pagamento da O.S. Verifique se ela já não foi recebida.');}
+    return;
+  }
+  alert('Busque uma venda ou O.S. para receber.');
+}
+function normalizarNumeroCaixa(n){return String(n||'').toUpperCase().replace(/\s|-/g,'')}
+function buscarCobrancaCaixa(){
+  const numero=normalizarNumeroCaixa(val('caixaBuscaNumero'));
+  if(!numero)return alert('Digite o número da venda ou da O.S.');
+  if(numero.startsWith('VEND')){
+    const v=db.vendas.find(x=>normalizarNumeroCaixa(x.numero)===numero);
+    if(!v)return alert('Venda não encontrada.');
+    return iniciarPagamentoCaixa(v.id);
+  }
+  if(numero.startsWith('OS')){
+    const o=db.os.find(x=>normalizarNumeroCaixa(x.numero)===numero);
+    if(!o)return alert('O.S. não encontrada.');
+    return iniciarPagamentoOS(o.id);
+  }
+  alert('Número inválido. Use VEND0001 ou OS0001.');
+}
+function finalizarCobrancaCaixa(){finalizarVendaNoCaixa();}
+
+function globalSearch(){let q=val('globalSearch').toLowerCase(),r=[];if(!q){document.getElementById('searchResults').innerHTML='Digite na barra superior para pesquisar.';return}db.clientes.forEach(c=>{if((c.nome+c.telefone+c.doc).toLowerCase().includes(q))r.push('Cliente: '+c.nome+' - '+c.telefone)});db.motos.forEach(m=>{if((m.placa+m.modelo+m.marca).toLowerCase().includes(q))r.push('Moto: '+m.modelo+' - '+m.placa)});db.os.forEach(o=>{if((o.numero+o.problema).toLowerCase().includes(q))r.push('O.S.: '+o.numero+' - '+clienteName(o.clienteId))});document.getElementById('searchResults').innerHTML=r.length?r.map(x=>'<div>'+x+'</div>').join(''):'Nada encontrado.'}
+function openPrintOS(id){let o=db.os.find(x=>x.id===id),c=cliente(o.clienteId),m=moto(o.motoId),e=db.empresa;let pecas=(o.pecas||[]).map(p=>`<tr><td>${p.qtd}</td><td>${p.codigo} - ${p.nome}</td><td>${money(p.unit)}</td><td>${money(p.total)}</td></tr>`).join('')||'<tr><td>&nbsp;</td><td></td><td>R$</td><td>R$</td></tr><tr><td>&nbsp;</td><td></td><td>R$</td><td>R$</td></tr>';let mao=(o.mao||[]).map(x=>`<tr><td>${x.desc}</td><td>${x.mecanico}</td><td>${money(x.valor)}</td></tr>`).join('')||'<tr><td>&nbsp;</td><td></td><td>R$</td></tr><tr><td>&nbsp;</td><td></td><td>R$</td></tr>';let tp=(o.pecas||[]).reduce((s,p)=>s+p.total,0),tm=(o.mao||[]).reduce((s,x)=>s+x.valor,0);document.getElementById('printOS').innerHTML=`
+ <div class="print-head"><div style="display:flex;gap:10px"><div class="print-logo">${e.logo?`<img src="${e.logo}">`:'MS'}</div><div><div class="print-title">${e.nome}</div><div class="print-small">CNPJ/CPF: ${e.doc}<br>${e.end}<br>Tel/WhatsApp: ${e.tel}</div></div></div><div style="text-align:right"><div class="print-title">ORDEM DE SERVIÇO</div><div class="print-small">Nº ${o.numero}<br>Data: ${brDate(o.data)}</div></div></div>
+ <div class="print-box"><div class="print-row"><div><b>Cliente:</b><br>${c.nome||''}</div><div><b>Telefone:</b><br>${c.telefone||''}</div><div><b>Moto:</b><br>${m.modelo||''}</div><div><b>Placa:</b><br>${m.placa||''}</div></div><div class="print-row" style="margin-top:6px"><div><b>Cor:</b><br>${m.cor||''}</div><div><b>Ano:</b><br>${m.ano||''}</div><div><b>Marca:</b><br>${m.marca||''}</div><div><b>Vendedor:</b><br>${func(o.vendedorId).nome||current.user}</div></div></div>
+ <div class="print-box"><b>Problema relatado pelo cliente:</b><div style="min-height:38px;margin-top:5px">${o.problema||''}</div></div>
+ <table class="print-table"><tr><th colspan="4">PEÇAS</th></tr><tr><th>Qtd</th><th>Peça</th><th>Valor unit.</th><th>Total</th></tr>${pecas}</table>
+ <table class="print-table"><tr><th colspan="3">MÃO DE OBRA</th></tr><tr><th>Descrição</th><th>Mecânico</th><th>Valor</th></tr>${mao}</table>
+ <div class="print-box"><div class="print-row"><div><b>Total peças:</b><br>${money(tp)}</div><div><b>Total mão de obra:</b><br>${money(tm)}</div><div><b>Desconto:</b><br>R$ ________</div><div><b>Total geral:</b><br>${money(tp+tm)}</div></div></div>
+ <div class="print-small">Declaro estar ciente dos serviços solicitados/realizados e das condições informadas pela oficina.</div><div class="sign"><div class="line">Assinatura do cliente</div><div class="line">Responsável pela oficina</div></div>`;
+ showSection('impressao')}
+
+
+/* ===== V1.1 - Auditoria + Mecânico responsável + Comissão automática ===== */
+function safeSetValue(id,value){const e=document.getElementById(id); if(e)e.value=value??'';}
+function safeText(id,value){const e=document.getElementById(id); if(e)e.innerText=value??'';}
+function normalizarStatusOS(){
+  const opts=['Aguardando aprovação','Aprovada','Em execução','Pronta para retirada','Entregue'];
+  ['osStatus','editOSStatus'].forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const atual=el.value;
+    el.innerHTML=opts.map(o=>`<option>${o}</option>`).join('');
+    if(opts.includes(atual))el.value=atual;
+  });
+}
+function inserirCamposOSV11(){
+  normalizarStatusOS();
+  const formCard=document.querySelector('#os .form-card');
+  if(formCard && !document.getElementById('osMecanicoResponsavel')){
+    const ref=document.getElementById('osVendedor');
+    const bloco=document.createElement('div');
+    bloco.innerHTML=`
+      <label>Mecânico responsável</label><select id="osMecanicoResponsavel"></select>
+      <div class="three">
+        <div><label>Data entrada</label><input id="osDataEntrada" type="date"></div>
+        <div><label>Data prevista entrega</label><input id="osDataPrevista" type="date"></div>
+        <div><label>Data entrega</label><input id="osDataEntrega" type="date"></div>
+      </div>`;
+    ref?.parentNode?.insertBefore(bloco, ref.nextSibling);
+  }
+  const editBox=document.getElementById('editOSBox');
+  if(editBox && !document.getElementById('editOSMecanicoResponsavel')){
+    const ref=document.getElementById('editOSStatus');
+    const bloco=document.createElement('div');
+    bloco.innerHTML=`
+      <label>Mecânico responsável</label><select id="editOSMecanicoResponsavel"></select>
+      <div class="three">
+        <div><label>Data entrada</label><input id="editOSDataEntrada" type="date"></div>
+        <div><label>Data prevista entrega</label><input id="editOSDataPrevista" type="date"></div>
+        <div><label>Data entrega</label><input id="editOSDataEntrega" type="date"></div>
+      </div>`;
+    ref?.parentNode?.insertBefore(bloco, ref.nextSibling);
+  }
+}
+function funcionariosMecanicosAtivos(){
+  return (db.funcionarios||[]).filter(f=>String(f.status||'Ativo')==='Ativo' && String(f.cargo||'').toLowerCase().includes('mecânico'));
+}
+function preencherSelectMecanicosV11(){
+  const opts=funcionariosMecanicosAtivos().map(f=>[f.id,`${f.nome} - ${f.cargo||''} (${Number(f.comissao||0)}%)`]);
+  fillSelect('osMecanicoResponsavel',opts);
+  fillSelect('editOSMecanicoResponsavel',opts);
+  fillSelect('osMecanico',opts);
+}
+async function registrarAuditoria(acao, modulo='Sistema', referenciaId=null, detalhes=''){
+  const item={
+    data:new Date().toLocaleString('pt-BR'),
+    user:current?.nome||currentSupabaseUser?.nome||current?.user||'sistema',
+    msg:`${modulo}: ${acao}${detalhes? ' - '+detalhes:''}`
+  };
+  if(!db.audit)db.audit=[];
+  db.audit.unshift(item);
+  try{
+    if(currentOficinaId){
+      await fetch(`${SUPABASE_REST_URL}/auditoria`,{
+        method:'POST',
+        headers:supabaseHeaders({'Prefer':'return=minimal'}),
+        body:JSON.stringify({
+          oficina_id:currentOficinaId,
+          usuario_id:currentSupabaseUser?.id||null,
+          usuario_nome:item.user,
+          acao,
+          modulo,
+          referencia_id:referenciaId,
+          detalhes
+        })
+      });
+    }
+  }catch(e){console.warn('Auditoria não enviada:',e);}
+}
+audit=function(msg){registrarAuditoria(msg,'Sistema',null,'');};
+async function carregarAuditoriaSupabase(){
+  if(!currentOficinaId)return;
+  try{
+    const resp=await fetch(`${SUPABASE_REST_URL}/auditoria?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc&limit=80`,{headers:supabaseHeaders()});
+    if(!resp.ok)throw new Error(await resp.text());
+    const arr=await resp.json();
+    db.audit=(arr||[]).map(a=>({
+      data:a.criado_em?new Date(a.criado_em).toLocaleString('pt-BR'):'-',
+      user:a.usuario_nome||'-',
+      msg:`${a.modulo||'Sistema'}: ${a.acao||''}${a.detalhes?' - '+a.detalhes:''}`
+    }));
+  }catch(e){console.warn('Erro ao carregar auditoria:',e);}
+}
+const _carregarFuncionariosSupabaseV11=carregarFuncionariosSupabase;
+carregarFuncionariosSupabase=async function(){
+  await _carregarFuncionariosSupabaseV11();
+  try{
+    const resp=await fetch(`${SUPABASE_REST_URL}/funcionarios?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+    if(resp.ok){
+      const arr=await resp.json();
+      db.funcionarios=(arr||[]).map(f=>({
+        id:f.id,nome:f.nome||'',cpf:f.cpf||'',telefone:f.telefone||'',cargo:f.cargo||'Mecânico I',
+        salario:Number(f.salario||0),comissao:Number(f.comissao_percentual||0),dataAdmissao:f.data_admissao||'',status:f.status||'Ativo',
+        totalProduzido:Number(f.total_produzido||0),totalComissao:Number(f.total_comissao||0),totalOs:Number(f.total_os||0)
+      }));
+    }
+  }catch(e){console.warn(e);}
+};
+carregarOSSupabase=async function(){
+  if(!currentOficinaId)return;
+  const resp=await fetch(`${SUPABASE_REST_URL}/ordens_servico?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  db.os=(arr||[]).map(o=>({
+    id:o.id,
+    numero:o.numero_os || ('OS'+String(o.id).padStart(4,'0')),
+    clienteId:o.cliente_id,
+    motoId:o.moto_id,
+    problema:o.problema_relatado||'',
+    status:o.status||'Aguardando aprovação',
+    vendedorId:o.vendedor_id||'',
+    mecanicoId:o.mecanico_id||'',
+    data:o.data_entrada || (o.criado_em||'').slice(0,10)||todayISO(),
+    dataEntrada:o.data_entrada || (o.criado_em||'').slice(0,10)||todayISO(),
+    dataPrevista:o.data_prevista||'',
+    entregaData:o.data_entrega||null,
+    dataEntrega:o.data_entrega||'',
+    pagamentoData:null,
+    pecas:Array.isArray(o.itens_pecas)?o.itens_pecas:[],
+    mao:Array.isArray(o.itens_mao_obra)?o.itens_mao_obra:[],
+    valorTotal:Number(o.valor_total||0)
+  }));
+};
+criarOSSupabase=async function(o){
+  if(!currentOficinaId)throw new Error('Oficina não identificada. Faça login novamente.');
+  const resp=await fetch(`${SUPABASE_REST_URL}/ordens_servico`,{
+    method:'POST',
+    headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      oficina_id:currentOficinaId,
+      cliente_id:o.clienteId,
+      moto_id:o.motoId,
+      numero_os:o.numero,
+      status:o.status||'Aguardando aprovação',
+      problema_relatado:o.problema||null,
+      observacoes:o.observacoes||null,
+      mecanico_id:o.mecanicoId||null,
+      data_entrada:o.dataEntrada||todayISO(),
+      data_prevista:o.dataPrevista||null,
+      data_entrega:o.dataEntrega||null,
+      mao_obra:0,valor_pecas:0,valor_total:0,
+      itens_pecas:o.pecas||[],itens_mao_obra:o.mao||[]
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  const arr=await resp.json();
+  await registrarAuditoria(`Criou O.S. ${o.numero}`,'O.S.',arr[0]?.id||null,clienteName(o.clienteId));
+  return arr[0]||null;
+};
+atualizarOSSupabase=async function(o){
+  const valorMao=(o.mao||[]).reduce((s,m)=>s+Number(m.valor||0),0);
+  const valorPecas=(o.pecas||[]).reduce((s,p)=>s+Number(p.total||0),0);
+  const resp=await fetch(`${SUPABASE_REST_URL}/ordens_servico?id=eq.${o.id}&oficina_id=eq.${currentOficinaId}`,{
+    method:'PATCH',headers:supabaseHeaders({'Prefer':'return=representation'}),
+    body:JSON.stringify({
+      status:o.status,
+      problema_relatado:o.problema||null,
+      mecanico_id:o.mecanicoId||null,
+      data_entrada:o.dataEntrada||o.data||todayISO(),
+      data_prevista:o.dataPrevista||null,
+      data_entrega:o.status==='Entregue'?(o.dataEntrega||todayISO()):(o.dataEntrega||null),
+      mao_obra:valorMao,valor_pecas:valorPecas,valor_total:valorMao+valorPecas,
+      itens_pecas:o.pecas||[],itens_mao_obra:o.mao||[]
+    })
+  });
+  if(!resp.ok)throw new Error(await resp.text());
+  await registrarAuditoria(`Editou O.S. ${o.numero}`,'O.S.',o.id,`Status: ${o.status}`);
+  return await resp.json();
+};
+async function aplicarComissaoOS(o){
+  if(!o || String(o.status)!=='Entregue')return;
+  const porFunc={};
+  (o.mao||[]).forEach(m=>{
+    const fid=m.funcId||o.mecanicoId;
+    if(!fid)return;
+    if(!porFunc[fid])porFunc[fid]={valor:0,comissao:0};
+    porFunc[fid].valor+=Number(m.valor||0);
+    porFunc[fid].comissao+=Number(m.comissaoValor||0);
+  });
+  for(const [fid,valores] of Object.entries(porFunc)){
+    const f=(db.funcionarios||[]).find(x=>String(x.id)===String(fid));
+    const novoProd=Number(f?.totalProduzido||0)+valores.valor;
+    const novaCom=Number(f?.totalComissao||0)+valores.comissao;
+    const novoOs=Number(f?.totalOs||0)+1;
+    try{
+      await fetch(`${SUPABASE_REST_URL}/funcionarios?id=eq.${fid}&oficina_id=eq.${currentOficinaId}`,{
+        method:'PATCH',headers:supabaseHeaders({'Prefer':'return=minimal'}),
+        body:JSON.stringify({total_produzido:novoProd,total_comissao:novaCom,total_os:novoOs})
+      });
+      await registrarAuditoria(`Calculou comissão de ${f?.nome||fid}`,'Comissão',Number(fid),`${o.numero}: ${money(valores.comissao)}`);
+    }catch(e){console.warn('Erro comissão:',e);}
+  }
+  await carregarFuncionariosSupabase();
+}
+const _addOSV11=addOS;
+addOS=async function(){
+  let o={
+    numero:proximaOS(),clienteId:val('osCliente'),motoId:val('osMoto'),problema:val('osProblema'),
+    status:val('osStatus')||'Aguardando aprovação',vendedorId:val('osVendedor'),mecanicoId:val('osMecanicoResponsavel'),
+    dataEntrada:val('osDataEntrada')||todayISO(),dataPrevista:val('osDataPrevista')||'',dataEntrega:val('osDataEntrega')||'',
+    data:val('osDataEntrada')||todayISO(),entregaData:null,pagamentoData:null,pecas:[],mao:[]
+  };
+  if(!o.clienteId||!o.motoId)return alert('Digite uma placa cadastrada para puxar cliente e moto.');
+  if(!o.mecanicoId)return alert('Selecione o mecânico responsável.');
+  try{
+    await criarOSSupabase(o);await carregarOSSupabase();
+    clear(['osProblema','osBuscaPlaca','osDataPrevista','osDataEntrega']);safeSetValue('osDataEntrada',todayISO());
+    document.getElementById('osDadosEncontrados').innerHTML='Digite uma placa já cadastrada para puxar cliente e moto automaticamente.';
+    alert('O.S. salva no Supabase com sucesso.');renderAll();
+  }catch(e){console.error(e);alert('Erro ao salvar O.S. no Supabase.');}
+};
+startEditOS=function(id){
+  let o=db.os.find(x=>String(x.id)===String(id));if(!o)return;
+  tempEdit=JSON.parse(JSON.stringify(o));
+  document.getElementById('editOSBox').style.display='block';
+  document.getElementById('editOSId').value=id;
+  document.getElementById('editOSTitle').innerText='Editar '+o.numero;
+  document.getElementById('editOSStatus').value=o.status;
+  safeSetValue('editOSMecanicoResponsavel',o.mecanicoId||'');
+  safeSetValue('editOSDataEntrada',o.dataEntrada||o.data||todayISO());
+  safeSetValue('editOSDataPrevista',o.dataPrevista||'');
+  safeSetValue('editOSDataEntrega',o.dataEntrega||o.entregaData||'');
+  renderOSItens();
+};
+saveOSEdit=async function(){
+  let id=Number(val('editOSId'));let idx=db.os.findIndex(o=>String(o.id)===String(id));if(idx<0)return;
+  let oldStatus=db.os[idx].status;
+  tempEdit.status=val('editOSStatus');
+  tempEdit.mecanicoId=val('editOSMecanicoResponsavel');
+  tempEdit.dataEntrada=val('editOSDataEntrada')||todayISO();
+  tempEdit.dataPrevista=val('editOSDataPrevista')||'';
+  tempEdit.dataEntrega=val('editOSDataEntrega')||'';
+  if(tempEdit.status==='Entregue' && !tempEdit.dataEntrega)tempEdit.dataEntrega=todayISO();
+  try{
+    await atualizarOSSupabase(tempEdit);
+    if(tempEdit.status==='Entregue' && oldStatus!=='Entregue')await aplicarComissaoOS(tempEdit);
+    await carregarOSSupabase();
+    tempEdit=null;document.getElementById('editOSBox').style.display='none';renderAll();
+    alert('O.S. atualizada.');
+  }catch(e){console.error(e);alert('Erro ao atualizar O.S.');}
+};
+const _loginV11=login;
+login=async function(){
+  await _loginV11();
+  if(currentOficinaId){await carregarAuditoriaSupabase(); renderAll();}
+};
+const _renderAllV11=renderAll;
+renderAll=function(){
+  inserirCamposOSV11();
+  preencherSelectMecanicosV11();
+  _renderAllV11();
+  inserirCamposOSV11();normalizarStatusOS();preencherSelectMecanicosV11();
+  table('osTable',['Nº','Entrada','Prevista','Cliente','Moto','Mecânico','Total','Status','Ações'],(db.os||[]).map(o=>[
+    o.numero,brDate(o.dataEntrada||o.data),brDate(o.dataPrevista),clienteName(o.clienteId),motoName(o.motoId),func(o.mecanicoId).nome||'-',money(osTotal(o)),`<span class="badge yellow">${o.status}</span>`,`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button> <button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`
+  ]));
+  table('funcTable',['Nome','CPF','Telefone','Cargo','Salário','Comissão %','Admissão','Status','O.S.','Produção','Comissão acum.','Ações'],(db.funcionarios||[]).map(f=>[
+    f.nome,f.cpf||'-',f.telefone||'-',f.cargo||'-',money(f.salario||0),(f.comissao||0)+'%',f.dataAdmissao?brDate(f.dataAdmissao):'-',f.status||'Ativo',f.totalOs||0,money(f.totalProduzido||0),money(f.totalComissao||0),`<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`
+  ]));
+  table('auditTable',['Data','Usuário','Ação'],(db.audit||[]).map(a=>[a.data,a.user,a.msg]));
+};
+
+load();
+// Sempre iniciar na tela de login. O acesso só abre depois de validar no Supabase.
+document.getElementById('login').style.display='flex';
+document.getElementById('app').style.display='none';
+</script>
+</body>
+</html>
