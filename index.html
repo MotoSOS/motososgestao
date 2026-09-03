@@ -2092,10 +2092,14 @@ function renderCaixa(){
 
 function aplicarDadosOficinaNoApp(oficina,assinatura){
   if(!oficina)return;
-  db.empresa.nome=oficina.nome_fantasia || oficina.razao_social || db.empresa.nome || 'MotoSOS Gestão';
-  db.empresa.doc=oficina.cnpj_cpf || db.empresa.doc || '';
-  db.empresa.tel=oficina.whatsapp || oficina.telefone || db.empresa.tel || '';
-  db.empresa.end=[oficina.endereco,oficina.numero,oficina.bairro,oficina.cidade,oficina.estado].filter(Boolean).join(' - ');
+  // Depois que a oficina personalizar estes dados, a configuracao salva neste
+  // navegador nao pode ser sobrescrita pelos valores antigos do cadastro.
+  if(!db.empresa.configuracaoSalva){
+    db.empresa.nome=oficina.nome_fantasia || oficina.razao_social || db.empresa.nome || 'MotoSOS Gestão';
+    db.empresa.doc=oficina.cnpj_cpf || db.empresa.doc || '';
+    db.empresa.tel=oficina.whatsapp || oficina.telefone || db.empresa.tel || '';
+    db.empresa.end=[oficina.endereco,oficina.numero,oficina.bairro,oficina.cidade,oficina.estado].filter(Boolean).join(' - ');
+  }
   db.plan=assinatura?.plano || db.plan || 'Start';
 }
 function diasAteVencimento(data){
@@ -3021,12 +3025,15 @@ function salvarLogoEmpresa(event){
   let reader=new FileReader();
   reader.onload=function(e){
     db.empresa.logo=e.target.result;
-    audit('Atualizou logo da empresa');
+    const logoPrev=document.getElementById('empLogoPreview');
+    if(logoPrev)logoPrev.innerHTML=`<div class="muted">Nova logo selecionada:</div><img src="${db.empresa.logo}" style="max-width:120px;max-height:80px;background:white;border-radius:8px;padding:6px;margin-top:6px">`;
   };
   reader.readAsDataURL(file);
 }
 
-function saveEmpresa(){
+async function saveEmpresa(){
+  const botao=document.querySelector('button[onclick="saveEmpresa()"]');
+  if(botao){botao.disabled=true;botao.innerText='Salvando...';}
   db.empresa={
     nome:val('empNome'),
     doc:val('empDoc'),
@@ -3035,9 +3042,37 @@ function saveEmpresa(){
     docSituacao:val('empSituacaoDoc'),
     docNascimento:val('empNascimentoDoc'),
     docFonte:val('empFonteDoc'),
-    logo:db.empresa.logo||''
+    logo:db.empresa.logo||'',
+    configuracaoSalva:true
   };
-  audit('Alterou dados da empresa');
+  try{
+    // Salva imediatamente no navegador, inclusive a imagem em base64.
+    save();
+
+    // Mantem os dados principais sincronizados no cadastro da oficina para
+    // que continuem corretos em um novo login ou em outro aparelho.
+    if(currentOficinaId){
+      const resp=await fetch(`${SUPABASE_REST_URL}/oficinas?id=eq.${currentOficinaId}`,{
+        method:'PATCH',
+        headers:supabaseHeaders({'Prefer':'return=minimal'}),
+        body:JSON.stringify({
+          nome_fantasia:db.empresa.nome||null,
+          cnpj_cpf:db.empresa.doc||null,
+          whatsapp:db.empresa.tel||null,
+          endereco:db.empresa.end||null
+        })
+      });
+      if(!resp.ok)throw new Error(await resp.text());
+    }
+    audit('Alterou dados da empresa');
+    alert('Dados da empresa salvos com sucesso.');
+  }catch(e){
+    console.error('Erro ao salvar dados da empresa:',e);
+    // O salvamento local ja foi feito; avisa caso a sincronizacao online falhe.
+    alert('Os dados foram salvos neste aparelho, mas não foi possível sincronizar com o servidor. Verifique a internet e tente novamente.');
+  }finally{
+    if(botao){botao.disabled=false;botao.innerText='Salvar dados';}
+  }
 }
 function changePlan(){db.plan=val('planSelect');buildNav();let active=document.querySelector('.section.active');if(active&&!sectionAllowed(active.id))showSection('dashboard');audit('Alterou plano para '+db.plan)}
 function dentroPeriodo(data){
