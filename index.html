@@ -308,13 +308,24 @@ body.caixa-mode .mobile-bottom{display:none!important}
 
 
 /* Atualização obrigatória MotoSOS */
-.update-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:10000;align-items:center;justify-content:center;padding:18px}
+.update-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:10000;align-items:flex-start;justify-content:center;padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .update-overlay.show{display:flex}
-.update-box{width:min(620px,96vw);background:#111722;border:1px solid var(--border);border-radius:20px;padding:22px;box-shadow:0 30px 90px #000;color:var(--text)}
+.update-box{position:relative;width:min(620px,96vw);max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:auto;background:#111722;border:1px solid var(--border);border-radius:20px;padding:22px;box-shadow:0 30px 90px #000;color:var(--text)}
 .update-box h2{margin:0 0 10px;font-size:28px}
 .update-version{display:inline-block;padding:6px 10px;border-radius:999px;background:#1e3a8a;color:#bfdbfe;font-weight:900;margin-bottom:12px}
 .update-required{display:inline-block;padding:6px 10px;border-radius:999px;background:#7f1d1d;color:#fecaca;font-weight:900;margin-left:6px}
-.update-summary{background:#0b0d12;border:1px dashed var(--border);border-radius:14px;padding:14px;line-height:1.5;color:#cbd5e1;margin:12px 0}
+.update-summary{background:#0b0d12;border:1px dashed var(--border);border-radius:14px;padding:14px;line-height:1.5;color:#cbd5e1;margin:12px 0;overflow-wrap:anywhere;white-space:normal}
+.update-actions{position:sticky;bottom:-22px;z-index:2;margin-top:12px;padding:12px 0 22px;background:linear-gradient(180deg,rgba(17,23,34,0),#111722 24%)}
+.update-close{display:none;position:sticky;top:0;float:right;z-index:3;width:42px;height:42px;padding:0;border-radius:999px;background:#374151;color:#fff;font-size:25px;line-height:42px}
+html.update-open,body.update-open{overflow:hidden!important}
+@media(max-width:520px){
+  .update-overlay{padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))}
+  .update-box{width:100%;max-height:100%;border-radius:16px;padding:16px}
+  .update-box h2{font-size:22px;padding-right:44px}
+  .update-summary{font-size:15px;line-height:1.45;padding:12px}
+  .update-actions{bottom:-16px;padding-bottom:16px}
+  .update-actions button{width:100%;min-height:46px}
+}
 
 
 /* ===== Login MotoSOS — versão ampliada e profissional ===== */
@@ -3945,6 +3956,7 @@ async function verificarAtualizacaoMotoSOS(){
   const resumo = document.getElementById('updateResumo');
   const obrigatoria = document.getElementById('updateObrigatoriaBadge');
   const btnDepois = document.getElementById('btnUpdateDepois');
+  const btnFecharTopo = document.getElementById('btnUpdateFecharTopo');
 
   if(versao)versao.innerText = nova.versao || `Atualização #${novoId}`;
 
@@ -3967,14 +3979,27 @@ async function verificarAtualizacaoMotoSOS(){
       : 'Nova atualização';
   }
 
-  // Conforme solicitado, toda versão nova bloqueia o uso até atualizar.
-  if(btnDepois)btnDepois.style.display = 'none';
+  // Atualizações obrigatórias bloqueiam o uso. As demais podem ser fechadas.
+  const podeFechar = status !== 'obrigatoria';
+  if(btnDepois)btnDepois.style.display = podeFechar ? '' : 'none';
+  if(btnFecharTopo)btnFecharTopo.style.display = podeFechar ? 'block' : 'none';
 
   if(overlay)overlay.classList.add('show');
+  document.documentElement.classList.add('update-open');
+  document.body.classList.add('update-open');
 }
 
 function fecharAtualizacaoMotoSOS(){
-  alert('Você precisa atualizar o MotoSOS Gestão para continuar.');
+  const nova = window.motososUpdateAtual;
+  if(normalizarStatusAtualizacao(nova?.status) === 'obrigatoria'){
+    alert('Você precisa atualizar o MotoSOS Gestão para continuar.');
+    return;
+  }
+
+  const overlay = document.getElementById('updateOverlay');
+  if(overlay)overlay.classList.remove('show');
+  document.documentElement.classList.remove('update-open');
+  document.body.classList.remove('update-open');
 }
 
 function confirmarAtualizacaoMotoSOS(){
@@ -4799,6 +4824,7 @@ renderAll = function(){
 
 <div id="updateOverlay" class="update-overlay">
   <div class="update-box">
+    <button id="btnUpdateFecharTopo" class="update-close" onclick="fecharAtualizacaoMotoSOS()" aria-label="Fechar atualização" title="Fechar">&times;</button>
     <div class="update-version" id="updateVersaoBadge">Nova versão</div>
     <span id="updateObrigatoriaBadge" class="update-required" style="display:none">Obrigatória</span>
     <h2>Atualização disponível</h2>
@@ -4806,9 +4832,9 @@ renderAll = function(){
     <div id="updateResumo" class="update-summary"></div>
     <div id="updateDebug" style="display:none;margin-top:12px;padding:10px;border-radius:10px;background:#7f1d1d;color:#fecaca;font-size:12px"></div>
 
-    <div class="row">
+    <div class="row update-actions">
       <button class="green" onclick="confirmarAtualizacaoMotoSOS()">Atualizar agora</button>
-      <button id="btnUpdateDepois" class="secondary" onclick="fecharAtualizacaoMotoSOS()">Lembrar depois</button>
+      <button id="btnUpdateDepois" class="secondary" onclick="fecharAtualizacaoMotoSOS()">Fechar</button>
     </div>
   </div>
 </div>
