@@ -3893,7 +3893,7 @@ function avisoValido(a){
 async function buscarAvisosAdminMotoSOS(){
   if(!currentOficinaId)return [];
   try{
-    const resp=await fetch(`${SUPABASE_REST_URL}/avisos?ativo=eq.true&select=*&order=id.asc`,{headers:supabaseHeaders({'Cache-Control':'no-cache'}),cache:'no-store'});
+    const resp=await fetch(`${SUPABASE_REST_URL}/avisos?ativo=eq.true&select=*&order=id.asc`,{headers:supabaseHeaders(),cache:'no-store'});
     if(!resp.ok)throw new Error(await resp.text());
     return (await resp.json()).filter(avisoValido);
   }catch(e){console.warn('Não foi possível buscar avisos:',e);return [];}
@@ -3943,6 +3943,7 @@ let sessaoAtualizacaoPendenteMotoSOS=null;
 let atualizacaoEmAndamentoMotoSOS=false;
 let erroRestauracaoLoginMotoSOS='';
 let ultimaAtualizacaoAplicadaMemoriaMotoSOS=0;
+let consultaAtualizacaoEmCursoMotoSOS=false;
 
 function registrarAtualizacaoAplicadaMotoSOS(nova){
   ultimaAtualizacaoAplicadaMemoriaMotoSOS=Math.max(updateIdAplicadoMotoSOS(),Number(nova.id)||0);
@@ -4058,6 +4059,10 @@ function normalizarStatusAtualizacao(status){
 }
 
 async function buscarAtualizacaoMaisRecenteMotoSOS(){
+  if(consultaAtualizacaoEmCursoMotoSOS)return null;
+  consultaAtualizacaoEmCursoMotoSOS=true;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),12000);
   try{
     const ultimoId = updateIdAplicadoMotoSOS();
 
@@ -4070,32 +4075,44 @@ async function buscarAtualizacaoMaisRecenteMotoSOS(){
 
     const resp = await fetch(url,{
       method:'GET',
-      headers:supabaseHeaders({
-        'Cache-Control':'no-cache',
-        'Pragma':'no-cache'
-      }),
-      cache:'no-store'
+      headers:supabaseHeaders(),
+      cache:'no-store',
+      signal:controller.signal
     });
 
     const texto = await resp.text();
 
     if(!resp.ok){
-      throw new Error(texto);
+      console.warn('Consulta de atualização: HTTP '+resp.status);
+      throw new Error(resp.status===401 || resp.status===403
+        ?'Não foi possível acessar as atualizações. Entre em contato com o suporte.'
+        :resp.status===404
+          ?'O serviço de atualizações não está disponível. Entre em contato com o suporte.'
+          :'O servidor de atualizações está indisponível. A consulta será tentada novamente.');
     }
 
     const lista = texto ? JSON.parse(texto) : [];
+    if(!Array.isArray(lista))throw new Error('A resposta do serviço de atualizações não pôde ser lida. A consulta será tentada novamente.');
+    const aviso=document.getElementById('updateDebug');
+    if(aviso){aviso.innerText='';aviso.style.display='none';}
     return lista[0] || null;
   }catch(e){
-    console.error('Erro ao buscar atualização no Supabase:',e);
+    console.warn('Consulta de atualização não concluída.');
 
     const aviso=document.getElementById('updateDebug');
     if(aviso){
-      aviso.innerText='Erro ao verificar atualização: '+e.message;
+      aviso.innerText=e.name==='AbortError'
+        ?'O servidor de atualizações demorou para responder. A consulta será tentada novamente.'
+        :e.name==='TypeError'
+          ?'Não foi possível consultar o servidor de atualizações. A consulta será tentada novamente.'
+          :e.name==='SyntaxError'
+            ?'A resposta do serviço de atualizações não pôde ser lida. A consulta será tentada novamente.'
+            :e.message;
       aviso.style.display='block';
     }
 
     return null;
-  }
+  }finally{clearTimeout(timeout);consultaAtualizacaoEmCursoMotoSOS=false;}
 }
 
 async function verificarAtualizacaoMotoSOS(){
