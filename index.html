@@ -583,6 +583,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
   <nav id="mobileBottom" class="mobile-bottom no-print"></nav>
 
   <main class="main">
+    <div id="updateSyncNotice" class="hint no-print" style="display:none;margin-bottom:14px" role="status">Alguns dados ainda não foram sincronizados. <button id="updateSyncButton" class="secondary small" onclick="sincronizarDepoisAtualizacaoMotoSOS()">Atualizar dados</button></div>
     <section id="dashboard" class="section active">
       <div class="page-title"><div><h1>Dashboard</h1>
       <div id="planAccessInfo" class="plan-tag"></div><p class="muted">Resumo rápido da oficina, com atalhos clicáveis.</p></div><span class="device-pill">Modo responsivo: celular + PC</span></div>
@@ -2174,7 +2175,7 @@ function verificarAvisoAssinatura(){
   }
 }
 
-function load(){
+function load(persistir=true){
   db=JSON.parse(localStorage.getItem(storageKey())||JSON.stringify(defaultDB));
   if(db.agenda) delete db.agenda;
   if(!db.cargos) db.cargos={mecanico:'Mecânico',vendedor:'Vendedor'};
@@ -2185,7 +2186,7 @@ function load(){
   db.users.forEach(u=>{if(u.user==='caixa')u.role='Caixa'});
   db.vendas.forEach(v=>{if(!v.status)v.status='Aberta'});
   normalizarNumeracaoDocumentos();
-  localStorage.setItem(storageKey(),JSON.stringify(db));
+  if(persistir)localStorage.setItem(storageKey(),JSON.stringify(db));
 }
 function normalizarNumeracaoDocumentos(){
   (db.vendas||[]).forEach((v,i)=>{v.numero='VEND'+String(i+1).padStart(4,'0')});
@@ -2215,7 +2216,9 @@ function brDate(iso){if(!iso)return'';let [y,m,d]=iso.split('-');return `${d}/${
 function audit(msg){db.audit.unshift({data:new Date().toLocaleString('pt-BR'),user:current?.user||'sistema',msg});save()}
 function clear(ids){ids.forEach(id=>{let e=document.getElementById(id);if(e)e.value=''})}
 async function login(opcoes={}){
-  const avisar=m=>{if(!opcoes.restaurar)alert(m);return false;};
+  erroRestauracaoLoginMotoSOS='';
+  let etapaLogin='validacao';
+  const avisar=m=>{erroRestauracaoLoginMotoSOS=m;if(!opcoes.restaurar)alert(m);return false;};
   let u=val('loginUser').trim(),p=val('loginPass').trim();
   if(!u||!p)return avisar('Informe usuário e senha.');
 
@@ -2240,25 +2243,21 @@ async function login(opcoes={}){
     currentSupabaseUser=usuario;
     currentAssinatura=assinatura;
 
-    // Carrega o banco local separado desta oficina neste navegador.
-    load();
+    etapaLogin='dados';
+    // Uma falha no cache não invalida o acesso já confirmado no servidor.
+    if(opcoes.restaurar){
+      const anterior=db;
+      try{load(false);}catch(e){db=anterior;console.warn('Cache local indisponível durante a atualização.');}
+    }else{load();}
     aplicarDadosOficinaNoApp(oficina,assinatura);
-    await carregarClientesSupabase();
-    await carregarMotosSupabase();
-    await carregarOSSupabase();
-    await carregarEstoqueSupabase();
-    await carregarVendasSupabase();
-    await carregarFuncionariosSupabase();
-    await carregarFinanceiroOficinaSupabase();
-    await carregarCaixaSupabase();
-    await carregarUsuariosSistemaSupabase();
-    await carregarConfigComercialSupabase();
+    const sincronizacaoPendente=await carregarDadosLoginMotoSOS(Boolean(opcoes.restaurar));
     iniciarAtualizacaoConfigComercial();
 
+    etapaLogin='interface';
     current={
-      user:usuario.email,
+      user:usuario.email||u,
       nome:usuario.nome,
-      pass:usuario.senha,
+      pass:p,
       role:mapPerfilToRole(usuario.perfil),
       perfil:usuario.perfil,
       oficina_id:usuario.oficina_id
@@ -2271,18 +2270,28 @@ async function login(opcoes={}){
     document.getElementById('currentRole').innerText=current.role;
     buildNav();
     renderAll();
-    await showSection(opcoes.secao || (current.role==='Caixa'?'caixa':'dashboard'));
+    const secao=opcoes.secao==='impressao'?'vendas':opcoes.secao;
+    await showSection(secao || (current.role==='Caixa'?'caixa':'dashboard'));
+    const avisoSync=document.getElementById('updateSyncNotice');
+    if(avisoSync)avisoSync.style.display=sincronizacaoPendente?'block':'none';
     if(opcoes.atualizacao){
-      localStorage.setItem('motosos_update_aplicada_id',String(Math.max(updateIdAplicadoMotoSOS(),Number(opcoes.atualizacao.id))));
-      localStorage.setItem('motosos_app_versao_atual',String(opcoes.atualizacao.versao||''));
+      registrarAtualizacaoAplicadaMotoSOS(opcoes.atualizacao);
     }
     iniciarAvisosAdminMotoSOS();
     iniciarVerificacaoAtualizacoesMotoSOS();
     verificarAvisoAssinatura();
     if(precisaTrocarSenha(usuario)) abrirPrimeiroAcesso(usuario);
-    save();
+    if(opcoes.restaurar){
+      try{save();}catch(e){console.warn('Não foi possível gravar o cache local; sessão preservada.');}
+    }else{save();}
     return true;
   }catch(e){
+    if(opcoes.restaurar){
+      console.warn('Falha na recuperação da sessão, etapa: '+etapaLogin);
+      return avisar(etapaLogin==='validacao'
+        ?'Não foi possível validar seu acesso no servidor. Confira sua conexão e tente novamente.'
+        :'Não foi possível abrir o aplicativo após a atualização. Tente novamente ou entre com seu usuário e senha.');
+    }
     console.error(e);
     return avisar('Erro ao entrar. Verifique sua internet ou fale com o suporte MotoSOS.');
   }
@@ -3932,6 +3941,47 @@ function iniciarAvisosAdminMotoSOS(){
 let intervaloAtualizacoesMotoSOS = null;
 let sessaoAtualizacaoPendenteMotoSOS=null;
 let atualizacaoEmAndamentoMotoSOS=false;
+let erroRestauracaoLoginMotoSOS='';
+let ultimaAtualizacaoAplicadaMemoriaMotoSOS=0;
+
+function registrarAtualizacaoAplicadaMotoSOS(nova){
+  ultimaAtualizacaoAplicadaMemoriaMotoSOS=Math.max(updateIdAplicadoMotoSOS(),Number(nova.id)||0);
+  try{
+    localStorage.setItem('motosos_update_aplicada_id',String(ultimaAtualizacaoAplicadaMemoriaMotoSOS));
+    localStorage.setItem('motosos_app_versao_atual',String(nova.versao||''));
+  }catch(e){console.warn('Versão aplicada nesta sessão; cache local indisponível.');}
+}
+
+async function sincronizarDepoisAtualizacaoMotoSOS(){
+  if(!current || !currentOficinaId)return;
+  const botao=document.getElementById('updateSyncButton');
+  if(botao){botao.disabled=true;botao.innerText='Sincronizando…';}
+  try{
+    const pendentes=await carregarDadosLoginMotoSOS(true);
+    renderAll();
+    document.getElementById('updateSyncNotice').style.display=pendentes?'block':'none';
+    try{save();}catch(e){console.warn('Cache local indisponível.');}
+  }finally{if(botao){botao.disabled=false;botao.innerText='Atualizar dados';}}
+}
+
+async function carregarDadosLoginMotoSOS(restaurando=false){
+  const etapas=[
+    carregarClientesSupabase,carregarMotosSupabase,carregarOSSupabase,
+    carregarEstoqueSupabase,carregarVendasSupabase,carregarFuncionariosSupabase,
+    carregarFinanceiroOficinaSupabase,carregarCaixaSupabase,
+    carregarUsuariosSistemaSupabase,carregarConfigComercialSupabase
+  ];
+  let pendentes=false;
+  for(const carregar of etapas){
+    try{await carregar();}
+    catch(e){
+      if(!restaurando)throw e;
+      pendentes=true;
+      console.warn('Sincronização pendente durante a atualização.');
+    }
+  }
+  return pendentes;
+}
 
 function mostrarCarregamentoAtualizacaoMotoSOS(mensagem='Carregando a nova versão…',erro=false){
   const overlay=document.getElementById('updateLoadingOverlay');
@@ -3977,7 +4027,7 @@ async function restaurarSessaoAtualizacaoMotoSOS(){
   document.getElementById('loginPass').value=sessao.pass;
   try{
     const entrou=await login({restaurar:true,oficinaId:sessao.oficinaId,secao:sessao.secao,atualizacao:{id:sessao.updateId,versao:sessao.versao}});
-    if(!entrou)throw new Error('Não foi possível recuperar o acesso.');
+    if(!entrou)throw new Error(erroRestauracaoLoginMotoSOS||'Não foi possível recuperar o acesso.');
     sessaoAtualizacaoPendenteMotoSOS=null;
     window.motososUpdateAtual=null;
     document.getElementById('loginPass').value='';
@@ -3985,7 +4035,8 @@ async function restaurarSessaoAtualizacaoMotoSOS(){
   }catch(e){
     document.getElementById('login').style.display='none';
     document.getElementById('app').style.display='none';
-    mostrarCarregamentoAtualizacaoMotoSOS('Não foi possível concluir a atualização. Confira sua conexão e tente novamente.',true);
+    console.warn('Recuperação da sessão não concluída.');
+    mostrarCarregamentoAtualizacaoMotoSOS(erroRestauracaoLoginMotoSOS||'Não foi possível abrir a nova versão. Tente novamente ou entre com seu usuário e senha.',true);
   }finally{atualizacaoEmAndamentoMotoSOS=false;}
   return true;
 }
@@ -3996,7 +4047,9 @@ function voltarAoLoginAtualizacaoMotoSOS(){
 }
 
 function updateIdAplicadoMotoSOS(){
-  return Number(localStorage.getItem('motosos_update_aplicada_id') || 0);
+  let salvo=0;
+  try{salvo=Number(localStorage.getItem('motosos_update_aplicada_id')||0)||0;}catch(e){}
+  return Math.max(salvo,ultimaAtualizacaoAplicadaMemoriaMotoSOS);
 }
 
 function normalizarStatusAtualizacao(status){
@@ -4130,7 +4183,7 @@ async function confirmarAtualizacaoMotoSOS(){
   url.searchParams.set('_atualizado', String(Date.now()));
 
   try{
-    localStorage.setItem(storageKey(),JSON.stringify(db));
+    try{localStorage.setItem(storageKey(),JSON.stringify(db));}catch(e){console.warn('Cache não gravado; iniciando a atualização com a sessão atual.');}
     sessionStorage.setItem('motosos_sessao_atualizacao',JSON.stringify({
       user:current.user,pass:current.pass,oficinaId:currentOficinaId,
       secao:document.querySelector('.section.active')?.id||'dashboard',
@@ -4915,7 +4968,7 @@ async function abrirConsultaPublicaOS(){
 }
 
 window.addEventListener('DOMContentLoaded',async()=>{
-load();
+try{load(false);}catch(e){db=JSON.parse(JSON.stringify(defaultDB));console.warn('Cache local não carregado.');}
 const publicMode=await abrirConsultaPublicaOS();
 if(publicMode){sessionStorage.removeItem('motosos_sessao_atualizacao');document.documentElement.classList.remove('update-resuming');return;}
 if(await restaurarSessaoAtualizacaoMotoSOS())return;
