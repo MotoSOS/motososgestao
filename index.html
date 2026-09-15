@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="same-origin">
 <title>MotoSOS Gestão</title>
 <style>
 :root{
@@ -556,7 +557,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
     <div class="logo">Moto<span>SOS</span></div>
     <p class="login-subtitle">Gestão completa, segura e conectada para sua oficina.</p>
     <label>Usuário</label><input id="loginUser" placeholder="Digite seu usuário">
-    <label>Senha</label><input id="loginPass" type="password" placeholder="Digite sua senha">
+    <label>Senha</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="Digite sua senha">
     <div class="row"><button onclick="login()" style="width:100%;padding:13px">Entrar</button></div>
     <div class="login-security-note">Sistema online conectado ao MotoSOS</div>
   </div>
@@ -1005,7 +1006,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
         <div class="three">
           <div><label>Nome</label><input id="usuarioSistemaNome" placeholder="Ex.: João"></div>
           <div><label>Login</label><input id="usuarioSistemaEmail" placeholder="Ex.: caixa95"></div>
-          <div><label>Senha</label><input id="usuarioSistemaSenha" placeholder="Senha provisória"></div>
+          <div><label>Senha</label><input id="usuarioSistemaSenha" type="password" autocomplete="new-password" placeholder="Nova senha; em branco mantém a atual"></div>
         </div>
         <div class="three">
           <div>
@@ -1338,10 +1339,10 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 const defaultDB={
- users:[{user:'adm',pass:'0000',role:'ADM'},{user:'atendimento',pass:'0000',role:'Atendimento'},{user:'atendimento2',pass:'0000',role:'Atendimento'},{user:'caixa',pass:'0000',role:'Caixa'}],
+ users:[],
  empresa:{nome:'MotoSOS Gestão',doc:'00.000.000/0001-00',tel:'(47) 99999-9999',end:'Rua Exemplo, 123 - Camboriú/SC',logo:''},
  clientes:[],motos:[],os:[],vendas:[],estoque:[],financeiro:[],funcionarios:[],chamados:[],audit:[],notasFiscais:[],plan:'Start',cargos:{mecanico:'Mecânico',vendedor:'Vendedor'}
 };
@@ -1381,7 +1382,8 @@ function mapPerfilToRole(perfil){
   const p=String(perfil||'').toLowerCase();
   if(p==='caixa')return 'Caixa';
   if(p==='atendente' || p==='atendimento' || p==='vendedor')return 'Atendente';
-  return 'ADM';
+  if(p==='adm'||p==='oficina_admin')return 'ADM';
+  return null;
 }
 function roleToPerfil(role){
   const r=String(role||'').toLowerCase();
@@ -1394,11 +1396,49 @@ function precisaTrocarSenha(usuario){
   // Depois que salvar, primeiro_acesso vira false e não pede novamente.
   return Boolean(usuario?.primeiro_acesso);
 }
+function perfilSeguroMotoSOS(usuario){
+  if(!usuario)return null;
+  const campos=['id','oficina_id','nome','email','perfil','ativo','primeiro_acesso'];
+  return Object.fromEntries(campos.filter(c=>Object.prototype.hasOwnProperty.call(usuario,c)).map(c=>[c,usuario[c]]));
+}
+function limparCredenciaisCacheMotoSOS(){
+  db.users=[];
+  if(Array.isArray(db.usuariosSistema))db.usuariosSistema=db.usuariosSistema.map(perfilSeguroMotoSOS).filter(Boolean);
+}
+function higienizarCachesLegadosMotoSOS(){
+  try{
+    const chaves=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i));
+    chaves.filter(k=>/^motosos_db_v3(?:_oficina_.*)?$/.test(k||'')).forEach(k=>{
+      try{
+        const original=localStorage.getItem(k),cache=JSON.parse(original);
+        if(!cache||typeof cache!=='object'||Array.isArray(cache))return;
+        cache.users=[];
+        if(Array.isArray(cache.usuariosSistema))cache.usuariosSistema=cache.usuariosSistema.map(perfilSeguroMotoSOS).filter(Boolean);
+        const limpo=JSON.stringify(cache);if(limpo!==original)localStorage.setItem(k,limpo);
+      }catch(e){/* Um cache indisponível não interrompe a abertura do aplicativo. */}
+    });
+  }catch(e){}
+}
+function senhaForteMotoSOS(senha){return String(senha||'').length>=12&&/[a-z]/i.test(senha)&&/\d/.test(senha);}
+function abrirCobrancaMotoSOS(endereco){
+  try{
+    const url=new URL(String(endereco));
+    if(url.protocol!=='https:'||url.username||url.password)throw new Error('URL inválida');
+    window.open(url.href,'_blank','noopener,noreferrer');
+  }catch(e){alert('O endereço da cobrança é inválido. Fale com o suporte.');}
+}
+function logoSeguraMotoSOS(valor){
+  const src=String(valor||'');
+  if(src.length>3*1024*1024)return '';
+  if(/^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(src))return src;
+  try{const u=new URL(src);if(u.protocol==='https:'&&!u.username&&!u.password)return u.href;}catch(e){}
+  return '';
+}
 async function buscarLoginSupabase(usuario,senha){
   const email=encodeURIComponent(String(usuario||'').trim().toLowerCase());
   const pass=encodeURIComponent(String(senha||'').trim());
-  const url=`${SUPABASE_REST_URL}/usuarios_sistema?email=eq.${email}&senha=eq.${pass}&ativo=eq.true&select=*&limit=1`;
-  const resp=await fetch(url,{headers:supabaseHeaders()});
+  const url=`${SUPABASE_REST_URL}/usuarios_sistema?email=eq.${email}&senha=eq.${pass}&ativo=eq.true&select=id,oficina_id,nome,email,perfil,ativo,primeiro_acesso&limit=1`;
+  const resp=await fetch(url,{headers:supabaseHeaders(),cache:'no-store',referrerPolicy:'no-referrer'});
   if(!resp.ok)throw new Error(await resp.text());
   const arr=await resp.json();
   return arr[0]||null;
@@ -1464,7 +1504,7 @@ function atualizarResumoUpgrade(){
     const plano=val('upgradePlano')||'Pro';
     const desconto=forma==='PIX'?` com ${Number(configComercial.desconto_pix_percentual||0)}% de desconto`:'';
     const extra=forma==='FATURADO'?` + taxa de aprovação ${money(configComercial.taxa_boleto_faturado||49.90)}`:'';
-    result.innerHTML=`<b>${plano}</b> via <b>${forma}</b>${desconto}${extra}<br>Valor final: <b>${money(v)}</b>`;
+    result.innerHTML=htmlMotoSOS`<b>${plano}</b> via <b>${forma}</b>${desconto}${extra}<br>Valor final: <b>${money(v)}</b>`;
   }
 }
 function preencherDadosUpgrade(){
@@ -1530,14 +1570,14 @@ async function solicitarUpgradePlano(){
         const pay=taxaData.payment||taxaData;
 
         if(pay.invoiceUrl){
-          taxaHtml += `<br><br><b>Taxa de aprovação gerada:</b> ${money(taxaAprovacao)}<br>`;
-          taxaHtml += `<button class="green" onclick="window.open('${pay.invoiceUrl}','_blank')">Abrir boleto da taxa</button>`;
+          taxaHtml += htmlMotoSOS`<br><br><b>Taxa de aprovação gerada:</b> ${money(taxaAprovacao)}<br>`;
+          taxaHtml += htmlMotoSOS`<button class="green" onclick="abrirCobrancaMotoSOS('${pay.invoiceUrl}')">Abrir boleto da taxa</button>`;
         }else{
-          taxaHtml += `<br><br><b>Taxa de aprovação:</b> ${money(taxaAprovacao)}<br><span class="muted">Cobrança criada, mas o link não retornou.</span>`;
+          taxaHtml += htmlMotoSOS`<br><br><b>Taxa de aprovação:</b> ${money(taxaAprovacao)}<br><span class="muted">Cobrança criada, mas o link não retornou.</span>`;
         }
       }catch(errTaxa){
         console.error('Erro ao gerar taxa de aprovação:', errTaxa);
-        taxaHtml += `<br><br><span style="color:#fca5a5"><b>Atenção:</b> solicitação enviada, mas houve erro ao gerar a taxa de aprovação. Veja o Console.</span>`;
+        taxaHtml += htmlMotoSOS`<br><br><span style="color:#fca5a5"><b>Atenção:</b> solicitação enviada, mas houve erro ao gerar a taxa de aprovação. Veja o Console.</span>`;
       }
 
       document.getElementById('upgradeResultado').innerHTML=
@@ -1553,10 +1593,10 @@ async function solicitarUpgradePlano(){
     const data=await resp.json().catch(()=>({}));
     if(!resp.ok || data.ok===false)throw new Error(data.erro||data.message||JSON.stringify(data));
     const pay=data.payment||data;
-    let html=`Cobrança gerada com sucesso.<br><b>Valor:</b> ${money(valor)}<br>`;
-    if(pay.invoiceUrl)html+=`<button class="green" onclick="window.open('${pay.invoiceUrl}','_blank')">Abrir cobrança</button> `;
-    if(pay.pixCopiaCola)html+=`<button class="secondary" onclick="copiarTexto('${String(pay.pixCopiaCola).replace(/'/g,"\\'")}')">Copiar PIX</button>`;
-    if(pay.encodedImage)html+=`<div style="margin-top:10px"><img src="data:image/png;base64,${pay.encodedImage}" style="max-width:210px;background:white;padding:8px;border-radius:8px"></div>`;
+    let html=String(htmlMotoSOS`Cobrança gerada com sucesso.<br><b>Valor:</b> ${money(valor)}<br>`);
+    if(pay.invoiceUrl)html+=htmlMotoSOS`<button class="green" onclick="abrirCobrancaMotoSOS('${pay.invoiceUrl}')">Abrir cobrança</button> `;
+    if(pay.pixCopiaCola)html+=htmlMotoSOS`<button class="secondary" onclick="copiarTexto('${pay.pixCopiaCola}')">Copiar PIX</button>`;
+    if(pay.encodedImage)html+=htmlMotoSOS`<div style="margin-top:10px"><img src="data:image/png;base64,${pay.encodedImage}" style="max-width:210px;background:white;padding:8px;border-radius:8px"></div>`;
     document.getElementById('upgradeResultado').innerHTML=html;
   }catch(e){console.error(e);alert('Erro ao solicitar upgrade. Veja o Console.');}
 }
@@ -1577,23 +1617,23 @@ function renderPlanoComercial(){
 
 async function carregarUsuariosSistemaSupabase(){
   if(!currentOficinaId)return;
-  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema?oficina_id=eq.${currentOficinaId}&select=*&order=id.asc`,{headers:supabaseHeaders()});
+  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema?oficina_id=eq.${currentOficinaId}&select=id,oficina_id,nome,email,perfil,ativo,primeiro_acesso&order=id.asc`,{headers:supabaseHeaders(),cache:'no-store'});
   if(!resp.ok)throw new Error(await resp.text());
   db.usuariosSistema=await resp.json()||[];
 }
 async function atualizarUsuarioSistemaSupabase(id,dados){
-  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema?id=eq.${id}&oficina_id=eq.${currentOficinaId}`,{
+  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema?id=eq.${id}&oficina_id=eq.${currentOficinaId}&select=id,oficina_id,nome,email,perfil,ativo,primeiro_acesso`,{
     method:'PATCH',headers:supabaseHeaders({'Prefer':'return=representation'}),body:JSON.stringify(dados)
   });
   if(!resp.ok)throw new Error(await resp.text());
-  const arr=await resp.json();return arr[0]||null;
+  const arr=await resp.json();return perfilSeguroMotoSOS(arr[0]);
 }
 async function criarUsuarioSistemaSupabase(dados){
-  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema`,{
+  const resp=await fetch(`${SUPABASE_REST_URL}/usuarios_sistema?select=id,oficina_id,nome,email,perfil,ativo,primeiro_acesso`,{
     method:'POST',headers:supabaseHeaders({'Prefer':'return=representation'}),body:JSON.stringify(dados)
   });
   if(!resp.ok)throw new Error(await resp.text());
-  const arr=await resp.json();return arr[0]||null;
+  const arr=await resp.json();return perfilSeguroMotoSOS(arr[0]);
 }
 async function salvarPrimeiroAcesso(){
   try{
@@ -1601,13 +1641,14 @@ async function salvarPrimeiroAcesso(){
     const novaSenha=val('primeiraSenhaNova').trim();
     const confirma=val('primeiraSenhaConfirma').trim();
     if(!novoLogin||!novaSenha||!confirma)return alert('Preencha novo login, nova senha e confirmação.');
-    if(novaSenha.length<4)return alert('A senha precisa ter pelo menos 4 caracteres.');
+    if(!senhaForteMotoSOS(novaSenha))return alert('Use uma senha de pelo menos 12 caracteres, com letras e números.');
     if(novaSenha!==confirma)return alert('As senhas não conferem.');
     const atualizado=await atualizarUsuarioSistemaSupabase(currentSupabaseUser.id,{email:novoLogin,senha:novaSenha,primeiro_acesso:false});
-    currentSupabaseUser={...currentSupabaseUser,...atualizado,email:novoLogin,senha:novaSenha,primeiro_acesso:false};
+    currentSupabaseUser=perfilSeguroMotoSOS({...currentSupabaseUser,...atualizado,email:novoLogin,primeiro_acesso:false});
     if(current){current.user=novoLogin;current.pass=novaSenha;}
     document.getElementById('currentUser').innerText=currentSupabaseUser.nome||novoLogin;
     document.getElementById('firstAccessOverlay').classList.remove('show');
+    clear(['primeiraSenhaNova','primeiraSenhaConfirma']);
     alert('Login e senha alterados com sucesso.');
     await carregarUsuariosSistemaSupabase();renderAll();
   }catch(e){console.error(e);alert('Erro ao alterar login/senha. Verifique se o login já não está em uso.');}
@@ -2182,8 +2223,7 @@ function load(persistir=true){
   if(!db.chamados) db.chamados=[];
   if(!db.financeiroOficina) db.financeiroOficina=[];
   if(!db.caixa) db.caixa=[];
-  if(!db.users.some(u=>u.user==='caixa')) db.users.push({user:'caixa',pass:'0000',role:'Caixa'});
-  db.users.forEach(u=>{if(u.user==='caixa')u.role='Caixa'});
+  limparCredenciaisCacheMotoSOS();
   db.vendas.forEach(v=>{if(!v.status)v.status='Aberta'});
   normalizarNumeracaoDocumentos();
   if(persistir)localStorage.setItem(storageKey(),JSON.stringify(db));
@@ -2192,7 +2232,7 @@ function normalizarNumeracaoDocumentos(){
   (db.vendas||[]).forEach((v,i)=>{v.numero='VEND'+String(i+1).padStart(4,'0')});
   (db.os||[]).forEach((o,i)=>{o.numero='OS'+String(i+1).padStart(4,'0')});
 }
-function save(){localStorage.setItem(storageKey(),JSON.stringify(db));renderAll()}
+function save(){limparCredenciaisCacheMotoSOS();localStorage.setItem(storageKey(),JSON.stringify(db));renderAll()}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function val(id){return document.getElementById(id)?.value||''}
 function dataLocalISO(valor){
@@ -2212,7 +2252,7 @@ function dataLocalISO(valor){
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 function todayISO(){return dataLocalISO()}
-function brDate(iso){if(!iso)return'';let [y,m,d]=iso.split('-');return `${d}/${m}/${y}`}
+function brDate(iso){const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);return m?`${m[3]}/${m[2]}/${m[1]}`:'';}
 function audit(msg){db.audit.unshift({data:new Date().toLocaleString('pt-BR'),user:current?.user||'sistema',msg});save()}
 function clear(ids){ids.forEach(id=>{let e=document.getElementById(id);if(e)e.value=''})}
 async function login(opcoes={}){
@@ -2225,6 +2265,7 @@ async function login(opcoes={}){
   try{
     const usuario=await buscarLoginSupabase(u,p);
     if(!usuario)return avisar('Usuário ou senha inválidos.');
+    if(!mapPerfilToRole(usuario.perfil))return avisar('Perfil sem autorização de acesso. Fale com o suporte MotoSOS.');
 
     const oficina=await buscarOficinaSupabase(usuario.oficina_id);
     if(!oficina)return avisar('Oficina não encontrada. Fale com o suporte MotoSOS.');
@@ -2240,7 +2281,7 @@ async function login(opcoes={}){
 
     currentOficinaId=usuario.oficina_id;
     currentOficinaStatus=statusOficina;
-    currentSupabaseUser=usuario;
+    currentSupabaseUser=perfilSeguroMotoSOS(usuario);
     currentAssinatura=assinatura;
 
     etapaLogin='dados';
@@ -2268,6 +2309,7 @@ async function login(opcoes={}){
     document.getElementById('app').style.display='block';
     document.getElementById('currentUser').innerText=usuario.nome||usuario.email;
     document.getElementById('currentRole').innerText=current.role;
+    document.getElementById('loginPass').value='';
     buildNav();
     renderAll();
     const secao=opcoes.secao==='impressao'?'vendas':opcoes.secao;
@@ -2297,6 +2339,10 @@ async function login(opcoes={}){
   }
 }
 function logout(){
+  for(const timer of [intervaloConfigComercial,intervaloAvisosAdmin,intervaloAtualizacoesMotoSOS])if(timer)clearInterval(timer);
+  intervaloConfigComercial=null;intervaloAvisosAdmin=null;intervaloAtualizacoesMotoSOS=null;
+  if(clienteRealtimeAvisos&&canalRealtimeAvisos)clienteRealtimeAvisos.removeChannel(canalRealtimeAvisos);
+  clienteRealtimeAvisos=null;canalRealtimeAvisos=null;
   sessionStorage.removeItem('motosos_sessao_atualizacao');
   sessaoAtualizacaoPendenteMotoSOS=null;
   current=null;
@@ -2315,6 +2361,12 @@ function logout(){
   const passEl=document.getElementById('loginPass');
   if(userEl)userEl.value='';
   if(passEl)passEl.value='';
+  clear(['usuarioSistemaSenha','primeiraSenhaNova','primeiraSenhaConfirma','cardNumber','cardCcv']);
+  document.getElementById('firstAccessOverlay')?.classList.remove('show');
+  document.getElementById('adminNoticeOverlay')?.classList.remove('show');
+  document.getElementById('updateOverlay')?.classList.remove('show');
+  avisoAdminAtual=null;avisosAdminFila=[];
+  window.motososUpdateAtual=null;
 }
 
 async function refreshSupabaseDataForSection(sectionId){
@@ -2375,24 +2427,24 @@ function buildMobileBottom(items){
   const mb=document.getElementById('mobileBottom');
   if(!mb)return;
   if(current && current.role==='Caixa'){
-    mb.innerHTML=`<button onclick="showSection('caixa')"><b>💰</b>Caixa</button><button onclick="logout()"><b>↩</b>Sair</button>`;
+    mb.innerHTML=htmlMotoSOS`<button onclick="showSection('caixa')"><b>💰</b>Caixa</button><button onclick="logout()"><b>↩</b>Sair</button>`;
     return;
   }
   const icon={dashboard:'⌂',clientes:'👤',motos:'🏍',os:'🧾',vendas:'🛒',estoque:'📦',financeiro:'💰',caixa:'💵'};
   const prioridade=['dashboard','clientes','motos','os','vendas','estoque','financeiro','caixa'];
   const visiveis=prioridade.map(id=>items.find(i=>i[0]===id)).filter(Boolean).slice(0,4);
-  mb.innerHTML=visiveis.map(i=>`<button onclick="showSection('${i[0]}')"><b>${icon[i[0]]||'•'}</b>${i[1]}</button>`).join('')+`<button onclick="toggleMenu(true)"><b>☰</b>Menu</button>`;
+  mb.innerHTML=visiveis.map(i=>htmlMotoSOS`<button onclick="showSection('${i[0]}')"><b>${icon[i[0]]||'•'}</b>${i[1]}</button>`).join('')+htmlMotoSOS`<button onclick="toggleMenu(true)"><b>☰</b>Menu</button>`;
 }
 function navButton(i){
   const icon={dashboard:'⌂',clientes:'👤',motos:'🏍️',os:'🧾',orcamentos:'📋',vendas:'🛒',estoque:'📦',financeiro:'💰',caixa:'💵',fechamentoCaixa:'🧾',nfEntrada:'📥',funcionarios:'👥',relatorios:'📊',usuarios:'🔐',contatoPro:'💬',configuracoes:'⚙️',planos:'⭐',auditoria:'🕒'};
-  return `<button id="nav-${i[0]}" onclick="showSection('${i[0]}')"><span class="nav-ico">${icon[i[0]]||'•'}</span>${i[1]}</button>`;
+  return htmlMotoSOS`<button id="nav-${i[0]}" onclick="showSection('${i[0]}')"><span class="nav-ico">${icon[i[0]]||'•'}</span>${i[1]}</button>`;
 }
 function renderDepartmentNav(groups){
   const nav=document.getElementById('nav');
   if(!nav)return;
   nav.innerHTML=groups.filter(g=>g.items.length).map(g=>`
     <div class="nav-group">
-      <div class="nav-group-title">${g.title}</div>
+      <div class="nav-group-title">${escapeHtml(g.title)}</div>
       ${g.items.map(navButton).join('')}
     </div>
   `).join('');
@@ -2439,8 +2491,62 @@ async function showSection(id){
 
   if(id==='contatoPro')carregarChamadosGestaoSupabase();
 }
-function table(id,heads,rows){let e=document.getElementById(id);if(!e)return;e.innerHTML='<tr>'+heads.map(h=>`<th>${h}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')}
-function fillSelect(id,opts){let e=document.getElementById(id);if(!e)return;let cur=e.value;e.innerHTML='<option value="">Selecione</option>'+opts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('');e.value=cur}
+// Somente os templates escritos no aplicativo podem fornecer marcação às tabelas.
+// Valores vindos do banco, formulários ou cache são sempre tratados como texto.
+class HtmlMotoSOS {
+  constructor(valor){this.valor=valor;Object.freeze(this);}
+  toString(){return this.valor;}
+}
+function interpolacaoHtmlMotoSOS(prefixo,valor){
+  let inicioTag=-1,aspasAtributo=null,inicioValor=0,atributo='';
+  for(let i=0;i<prefixo.length;i++){
+    const c=prefixo[i];
+    if(inicioTag<0){if(c==='<'&&/[a-z/]/i.test(prefixo[i+1]||''))inicioTag=i;continue;}
+    if(aspasAtributo){if(c===aspasAtributo){aspasAtributo=null;atributo='';}continue;}
+    if(c==='>'){inicioTag=-1;continue;}
+    if(c==='"'||c==="'"){
+      const m=prefixo.slice(inicioTag,i).match(/([\w:-]+)\s*=\s*$/);
+      if(m){aspasAtributo=c;atributo=m[1];inicioValor=i+1;}
+    }
+  }
+  if(aspasAtributo&&/^on[a-z]+$/i.test(atributo)){
+    const codigo=prefixo.slice(inicioValor);
+    let aspas=null;
+    for(let i=0;i<codigo.length;i++){
+      const c=codigo[i];
+      if(c==='\\'){i++;continue;}
+      if(aspas){if(c===aspas)aspas=null;}
+      else if(c==="'"||c==='"')aspas=c;
+    }
+    if(aspas){
+      const texto=String(valor??'').replace(/[\\'"\r\n\u2028\u2029]/g,c=>({
+        '\\':'\\\\',"'":'\\u0027','"':'\\u0022','\r':'\\r','\n':'\\n','\u2028':'\\u2028','\u2029':'\\u2029'
+      }[c]));
+      return escapeHtml(texto);
+    }
+    if(typeof valor==='boolean')return String(valor);
+    if((typeof valor==='number'&&Number.isFinite(valor))||/^\d+$/.test(String(valor??'')))return String(valor);
+    return 'null';
+  }
+  return escapeHtml(valor);
+}
+function htmlMotoSOS(partes,...valores){
+  let html=partes[0];
+  valores.forEach((valor,i)=>{html+=interpolacaoHtmlMotoSOS(html,valor)+partes[i+1];});
+  return new HtmlMotoSOS(html);
+}
+function table(id,heads,rows){
+  const e=document.getElementById(id);if(!e)return;
+  const celula=c=>c instanceof HtmlMotoSOS?String(c):escapeHtml(c);
+  e.innerHTML='<tr>'+heads.map(h=>'<th>'+escapeHtml(h)+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+celula(c)+'</td>').join('')+'</tr>').join('');
+}
+function fillSelect(id,opts){
+  const e=document.getElementById(id);if(!e)return;
+  const atual=e.value;e.replaceChildren();
+  const inicial=document.createElement('option');inicial.value='';inicial.textContent='Selecione';e.appendChild(inicial);
+  opts.forEach(([valor,texto])=>{const o=document.createElement('option');o.value=String(valor??'');o.textContent=String(texto??'');e.appendChild(o);});
+  e.value=atual;
+}
 function cliente(id){return db.clientes.find(c=>String(c.id)===String(id))||{}}
 function clienteName(id){return cliente(id).nome||'-'}
 function moto(id){return db.motos.find(m=>String(m.id)===String(id))||{}}
@@ -2596,7 +2702,7 @@ function buscarMotoPorPlaca(){
   let c=cliente(m.clienteId);
   document.getElementById('osCliente').value=c.id;
   document.getElementById('osMoto').value=m.id;
-  box.innerHTML=`<b>Cliente:</b> ${c.nome}<br><b>Telefone:</b> ${c.telefone}<br><b>Moto:</b> ${m.modelo} | <b>Placa:</b> ${m.placa} | <b>Cor:</b> ${m.cor||'-'}`;
+  box.innerHTML=htmlMotoSOS`<b>Cliente:</b> ${c.nome}<br><b>Telefone:</b> ${c.telefone}<br><b>Moto:</b> ${m.modelo} | <b>Placa:</b> ${m.placa} | <b>Cor:</b> ${m.cor||'-'}`;
 }
 function nextSequenceNumber(items,prefix){
   let maior=0;
@@ -2644,7 +2750,7 @@ function startEditOS(id){let o=db.os.find(x=>x.id===id);tempEdit=JSON.parse(JSON
 function cancelOSEdit(){tempEdit=null;document.getElementById('editOSBox').style.display='none'}
 function addPecaToOS(){if(!tempEdit)return;let pid=val('osPecaSelect'),qtd=Number(val('osPecaQtd'));let p=produto(pid);if(!p.id)return alert('Selecione uma peça do estoque.');if(qtd<=0)return alert('Quantidade inválida.');if(qtd>Number(p.qtd))return alert('Estoque insuficiente. Disponível: '+p.qtd);tempEdit.pecas.push({produtoId:p.id,codigo:p.codigo,nome:p.produto,qtd,unit:Number(p.venda),total:qtd*Number(p.venda)});renderOSItens()}
 function addMaoToOS(){if(!tempEdit)return;let fid=val('osMecanico'),mec=func(fid),desc=val('osMaoDesc'),valor=Number(val('osMaoValor'));if(!mec.id)return alert('Selecione o mecânico.');if(!desc||valor<=0)return alert('Descrição e valor são obrigatórios.');let com=valor*(Number(mec.comissao||0)/100);tempEdit.mao.push({funcId:mec.id,mecanico:mec.nome,desc,valor,comissaoPerc:Number(mec.comissao||0),comissaoValor:com});clear(['osMaoDesc']);document.getElementById('osMaoValor').value=0;renderOSItens()}
-function renderOSItens(){let d=document.getElementById('osItensResumo');if(!tempEdit){d.innerHTML='';return}let pecas=tempEdit.pecas.map((p,i)=>`<div>Peça: ${p.codigo} - ${p.nome} | Qtd ${p.qtd} | Total ${money(p.total)} <button class="small secondary" onclick="tempEdit.pecas.splice(${i},1);renderOSItens()">remover</button></div>`).join('')||'<div>Nenhuma peça.</div>';let mao=tempEdit.mao.map((m,i)=>`<div>M.O.: ${m.desc} | ${m.mecanico} | ${money(m.valor)} | Comissão ${money(m.comissaoValor)} <button class="small secondary" onclick="tempEdit.mao.splice(${i},1);renderOSItens()">remover</button></div>`).join('')||'<div>Nenhuma mão de obra.</div>';d.innerHTML='<b>Peças</b>'+pecas+'<br><b>Mão de obra</b>'+mao}
+function renderOSItens(){let d=document.getElementById('osItensResumo');if(!tempEdit){d.innerHTML='';return}let pecas=tempEdit.pecas.map((p,i)=>htmlMotoSOS`<div>Peça: ${p.codigo} - ${p.nome} | Qtd ${p.qtd} | Total ${money(p.total)} <button class="small secondary" onclick="tempEdit.pecas.splice(${i},1);renderOSItens()">remover</button></div>`).join('')||'<div>Nenhuma peça.</div>';let mao=tempEdit.mao.map((m,i)=>htmlMotoSOS`<div>M.O.: ${m.desc} | ${m.mecanico} | ${money(m.valor)} | Comissão ${money(m.comissaoValor)} <button class="small secondary" onclick="tempEdit.mao.splice(${i},1);renderOSItens()">remover</button></div>`).join('')||'<div>Nenhuma mão de obra.</div>';d.innerHTML='<b>Peças</b>'+pecas+'<br><b>Mão de obra</b>'+mao}
 async function saveOSEdit(){
   let id=Number(val('editOSId'));
   let idx=db.os.findIndex(o=>o.id===id);
@@ -2718,7 +2824,7 @@ function renderBuscaClienteVenda(){
     return !termo || texto.includes(termo);
   });
   if(!lista.length){box.innerHTML='<div class="hint">Nenhum cliente encontrado.</div>';return;}
-  box.innerHTML=lista.map(c=>`
+  box.innerHTML=lista.map(c=>htmlMotoSOS`
     <div class="pick-card">
       <div class="pick-card-main">
         <div class="pick-title">${c.nome||'Sem nome'}</div>
@@ -2755,7 +2861,7 @@ function renderBuscaProdutoVenda(){
     return Number(p.qtd)>0 && (!termo || texto.includes(termo));
   });
   if(!lista.length){box.innerHTML='<div class="hint">Nenhum produto encontrado no estoque.</div>';return;}
-  box.innerHTML=lista.map(p=>`
+  box.innerHTML=lista.map(p=>htmlMotoSOS`
     <div class="pick-card">
       <div class="pick-card-main">
         <div class="pick-title">${p.codigo||''} - ${p.produto||'Produto'}</div>
@@ -3004,8 +3110,7 @@ function cargoNome(tipo){
   if(!db.chamados) db.chamados=[];
   if(!db.financeiroOficina) db.financeiroOficina=[];
   if(!db.caixa) db.caixa=[];
-  if(!db.users.some(u=>u.user==='caixa')) db.users.push({user:'caixa',pass:'0000',role:'Caixa'});
-  db.users.forEach(u=>{if(u.user==='caixa')u.role='Caixa'});
+  limparCredenciaisCacheMotoSOS();
   return db.cargos[tipo] || tipo;
 }
 function saveCargos(){
@@ -3087,7 +3192,7 @@ function cancelFuncEdit(){
 function salvarLogoEmpresa(event){
   let file=event.target.files && event.target.files[0];
   if(!file)return;
-  if(!file.type.startsWith('image/')){
+  if(!['image/png','image/jpeg','image/webp','image/gif'].includes(file.type)){
     alert('Selecione uma imagem PNG ou JPG.');
     return;
   }
@@ -3097,9 +3202,9 @@ function salvarLogoEmpresa(event){
   }
   let reader=new FileReader();
   reader.onload=function(e){
-    db.empresa.logo=e.target.result;
+    db.empresa.logo=logoSeguraMotoSOS(e.target.result);
     const logoPrev=document.getElementById('empLogoPreview');
-    if(logoPrev)logoPrev.innerHTML=`<div class="muted">Nova logo selecionada:</div><img src="${db.empresa.logo}" style="max-width:120px;max-height:80px;background:white;border-radius:8px;padding:6px;margin-top:6px">`;
+    if(logoPrev)logoPrev.innerHTML=htmlMotoSOS`<div class="muted">Nova logo selecionada:</div><img src="${logoSeguraMotoSOS(db.empresa.logo)}" referrerpolicy="no-referrer" style="max-width:120px;max-height:80px;background:white;border-radius:8px;padding:6px;margin-top:6px">`;
   };
   reader.readAsDataURL(file);
 }
@@ -3163,12 +3268,13 @@ function limparFormUsuarioSistema(){
   const a=document.getElementById('usuarioSistemaAtivo'); if(a)a.value='true';
 }
 function editarUsuarioSistema(id){
+  if(!current||current.role!=='ADM')return alert('Apenas ADM pode gerenciar usuários.');
   const u=(db.usuariosSistema||[]).find(x=>String(x.id)===String(id));
   if(!u)return alert('Usuário não encontrado.');
   document.getElementById('usuarioSistemaId').value=u.id;
   document.getElementById('usuarioSistemaNome').value=u.nome||'';
   document.getElementById('usuarioSistemaEmail').value=u.email||'';
-  document.getElementById('usuarioSistemaSenha').value=u.senha||'';
+  document.getElementById('usuarioSistemaSenha').value='';
   document.getElementById('usuarioSistemaPerfil').value=roleToPerfil(u.perfil||'atendente');
   document.getElementById('usuarioSistemaAtivo').value=String(Boolean(u.ativo));
   showSection('usuarios');
@@ -3182,12 +3288,15 @@ async function salvarUsuarioSistema(){
     const senha=val('usuarioSistemaSenha').trim();
     const perfil=val('usuarioSistemaPerfil');
     const ativo=val('usuarioSistemaAtivo')==='true';
-    if(!nome||!email||!senha)return alert('Nome, login e senha são obrigatórios.');
-    const dados={oficina_id:currentOficinaId,nome,email,senha,perfil,ativo};
+    if(!nome||!email||(!id&&!senha))return alert('Nome e login são obrigatórios. Informe uma senha para o novo usuário.');
+    if(senha&&!senhaForteMotoSOS(senha))return alert('Use uma senha de pelo menos 12 caracteres, com letras e números.');
+    if(!['adm','caixa','atendente'].includes(perfil))return alert('Selecione um perfil válido.');
+    if(String(id)===String(currentSupabaseUser?.id)&&(!ativo||perfil!=='adm'))return alert('Você não pode retirar seu próprio acesso de ADM.');
+    const dados={oficina_id:currentOficinaId,nome,email,perfil,ativo};
+    if(senha){dados.senha=senha;dados.primeiro_acesso=true;}
     if(id){
-      dados.primeiro_acesso=true;
       await atualizarUsuarioSistemaSupabase(id,dados);
-      alert('Usuário atualizado. No próximo login, ele deverá alterar login/senha.');
+      alert(senha?'Usuário atualizado. No próximo login, ele deverá alterar login/senha.':'Usuário atualizado.');
     }else{
       dados.primeiro_acesso=true;
       await criarUsuarioSistemaSupabase(dados);
@@ -3208,8 +3317,10 @@ async function alternarUsuarioSistema(id,ativo){
 }
 async function redefinirSenhaUsuarioSistema(id){
   try{
-    const nova=prompt('Digite a nova senha provisória:', '0000');
+    if(!current||current.role!=='ADM')return alert('Apenas ADM pode gerenciar usuários.');
+    const nova=prompt('Digite uma senha provisória de pelo menos 12 caracteres, com letras e números:');
     if(!nova)return;
+    if(!senhaForteMotoSOS(nova))return alert('Use uma senha de pelo menos 12 caracteres, com letras e números.');
     await atualizarUsuarioSistemaSupabase(id,{senha:nova,primeiro_acesso:true});
     await carregarUsuariosSistemaSupabase();renderAll();
     alert('Senha redefinida. O usuário deverá alterar login/senha no próximo acesso.');
@@ -3264,7 +3375,7 @@ function mostrarStatusDocumentoEmpresa(mensagem,tipo='info'){
   box.style.display='block';
   box.style.borderColor=tipo==='erro'?'#7f1d1d':tipo==='sucesso'?'#14532d':'var(--border)';
   box.style.color=tipo==='erro'?'#fecaca':tipo==='sucesso'?'#bbf7d0':'#cbd5e1';
-  box.innerHTML=mensagem;
+  box.innerHTML=mensagem instanceof HtmlMotoSOS?String(mensagem):escapeHtml(mensagem);
 }
 function formatarNascimentoDocumento(valor){
   const d=somenteDigitosDocumento(valor);
@@ -3319,7 +3430,7 @@ function aplicarResultadoDocumentoEmpresa(resultado){
   if(nascimento)nascimento.value=formatarNascimentoDocumento(resultado.nascimento||'');
   if(fonte)fonte.value=resultado.fonte||'';
   mostrarStatusDocumentoEmpresa(
-    `<b>Consulta concluída.</b><br>Documento: ${resultado.tipo||'-'}<br>Situação: ${resultado.situacao||'Não informada'}<br>Fonte: ${resultado.fonte||'Não informada'}`,
+    htmlMotoSOS`<b>Consulta concluída.</b><br>Documento: ${resultado.tipo||'-'}<br>Situação: ${resultado.situacao||'Não informada'}<br>Fonte: ${resultado.fonte||'Não informada'}`,
     'sucesso'
   );
 }
@@ -3368,7 +3479,7 @@ async function buscarDocumentoEmpresa(){
     if(tipo==='CPF' && (e.codigo==='SERPRO_NAO_CONFIGURADO' || /SERPRO|configurad/i.test(mensagem))){
       mensagem='A consulta de CPF está pronta no app, mas as credenciais oficiais do SERPRO ainda não foram configuradas no Supabase.';
     }
-    mostrarStatusDocumentoEmpresa(`<b>Consulta não concluída.</b><br>${mensagem}`,'erro');
+    mostrarStatusDocumentoEmpresa(htmlMotoSOS`<b>Consulta não concluída.</b><br>${mensagem}`,'erro');
   }finally{
     if(btn){btn.disabled=false;btn.innerText='Consultar CPF/CNPJ';}
   }
@@ -3460,7 +3571,7 @@ function renderGraficoBarra(id,dados,opts={}){
   el.innerHTML=`<div class="chart-bars">${dados.map(d=>{
     const h=Math.max(4,Math.round((Number(d.valor||0)/max)*145));
     const valor=opts.money?money(d.valor):String(Math.round(Number(d.valor||0)));
-    return `<div class="chart-item"><div class="chart-value">${valor}</div><div class="chart-bar" style="height:${h}px"></div><div class="chart-label">${d.label}</div></div>`;
+    return htmlMotoSOS`<div class="chart-item"><div class="chart-value">${valor}</div><div class="chart-bar" style="height:${h}px"></div><div class="chart-label">${d.label}</div></div>`;
   }).join('')}</div>`;
 }
 function totalMaoOS(o){return (o.mao||[]).reduce((s,m)=>s+Number(m.valor||0),0) || Number(o.mao_obra||0) || 0;}
@@ -3556,7 +3667,7 @@ function renderPermissoesUsuario(){
     ['Administração',['funcionarios','usuarios','configuracoes','auditoria','contatoPro']]
   ];
   const nomes={dashboard:'Dashboard',clientes:'Clientes',clientes_criar:'Cadastrar clientes',clientes_editar:'Editar clientes',clientes_excluir:'Excluir clientes',motos:'Motos',motos_criar:'Cadastrar motos',motos_editar:'Editar motos',os:'O.S.',os_criar:'Criar O.S.',os_editar:'Editar O.S.',orcamentos:'Orçamentos',vendas:'Vendas',vendas_criar:'Criar vendas',estoque:'Estoque',estoque_editar:'Editar estoque',caixa:'Caixa',fechamentoCaixa:'Fechamento de Caixa',financeiro:'Financeiro',relatorios:'Relatórios',nfEntrada:'NF Entrada',emitir_nfe:'Emitir NF-e',emitir_nfce:'Emitir NFC-e',emitir_nfse:'Emitir NFS-e',funcionarios:'Funcionários',usuarios:'Usuários',configuracoes:'Configurações',auditoria:'Auditoria',contatoPro:'Contato Pro'};
-  box.innerHTML='<div class="perm-grid">'+itens.map(grupo=>`<div class="perm-card"><div class="perm-title">${grupo[0]}</div>${grupo[1].map(k=>`<label><input type="checkbox" class="perm-check" value="${k}"> ${nomes[k]||k}</label>`).join('')}</div>`).join('')+'</div>';
+  box.innerHTML='<div class="perm-grid">'+itens.map(grupo=>`<div class="perm-card"><div class="perm-title">${grupo[0]}</div>${grupo[1].map(k=>htmlMotoSOS`<label><input type="checkbox" class="perm-check" value="${k}"> ${nomes[k]||k}</label>`).join('')}</div>`).join('')+'</div>';
   aplicarPermissoesPerfil();
 }
 function aplicarPermissoesPerfil(){
@@ -3581,7 +3692,7 @@ function renderFechamentoCaixa(){
   const total=Object.values(grupos).reduce((a,b)=>a+b,0);
   const box=document.getElementById('fechamentoResumo');
   const active=f=>fechamentoFormaFiltro===f?' active':'';
-  if(box)box.innerHTML=`<div class="caixa-forma-card filterable dinheiro${active('Dinheiro')}" onclick="setFechamentoFormaFiltro('Dinheiro')"><h3>Dinheiro</h3><div class="valor">${money(grupos.Dinheiro)}</div></div><div class="caixa-forma-card filterable pix${active('PIX')}" onclick="setFechamentoFormaFiltro('PIX')"><h3>PIX</h3><div class="valor">${money(grupos.PIX)}</div></div><div class="caixa-forma-card filterable debito${active('Débito')}" onclick="setFechamentoFormaFiltro('Débito')"><h3>Débito</h3><div class="valor">${money(grupos.Débito)}</div></div><div class="caixa-forma-card filterable credito${active('Crédito')}" onclick="setFechamentoFormaFiltro('Crédito')"><h3>Crédito</h3><div class="valor">${money(grupos.Crédito)}</div></div><div class="caixa-forma-card filterable total${active('Todos')}" onclick="setFechamentoFormaFiltro('Todos')"><h3>Total</h3><div class="valor">${money(total)}</div></div>`;
+  if(box)box.innerHTML=htmlMotoSOS`<div class="caixa-forma-card filterable dinheiro${active('Dinheiro')}" onclick="setFechamentoFormaFiltro('Dinheiro')"><h3>Dinheiro</h3><div class="valor">${money(grupos.Dinheiro)}</div></div><div class="caixa-forma-card filterable pix${active('PIX')}" onclick="setFechamentoFormaFiltro('PIX')"><h3>PIX</h3><div class="valor">${money(grupos.PIX)}</div></div><div class="caixa-forma-card filterable debito${active('Débito')}" onclick="setFechamentoFormaFiltro('Débito')"><h3>Débito</h3><div class="valor">${money(grupos.Débito)}</div></div><div class="caixa-forma-card filterable credito${active('Crédito')}" onclick="setFechamentoFormaFiltro('Crédito')"><h3>Crédito</h3><div class="valor">${money(grupos.Crédito)}</div></div><div class="caixa-forma-card filterable total${active('Todos')}" onclick="setFechamentoFormaFiltro('Todos')"><h3>Total</h3><div class="valor">${money(total)}</div></div>`;
   const filtradas=fechamentoFormaFiltro==='Todos'?entradas:entradas.filter(m=>formaNormalizada(m.formaPagamento||m.forma_pagamento||m.forma||m.pagamento)===fechamentoFormaFiltro);
   table('fechamentoTable',['Data','Hora','Forma','Origem','Descrição','Valor'],filtradas.map(m=>[brDate(dataMovimento(m)),m.hora||'-',formaNormalizada(m.formaPagamento||m.forma_pagamento||m.forma||m.pagamento),m.origem||'-',m.desc||m.descricao||'-',money(m.valor||0)]));
 }
@@ -3615,7 +3726,7 @@ function abrirHistoricoCliente(id){
   const os=(db.ordens_servico||db.ordens||db.os||[]).filter(o=>String(o.cliente_id||o.clienteId||o.cliente)===String(id));
   const notas=(db.notasFiscais||[]).filter(n=>String(n.cliente_id||n.clienteId||'')===String(id));
   document.getElementById('clienteHistoricoTitulo').innerText='Histórico de '+(c.nome||c.nome_razao_social||'Cliente');
-  document.getElementById('clienteHistoricoConteudo').innerHTML=`<h3>Compras</h3>${vendas.length?'<table><tr><th>Data</th><th>Descrição</th><th>Valor</th></tr>'+vendas.map(v=>`<tr><td>${brDate((v.criado_em||v.data||'').slice(0,10))}</td><td>${v.descricao||v.numero||'Venda'}</td><td>${money(v.valor_total||v.valor||0)}</td></tr>`).join('')+'</table>':'<p class="muted">Nenhuma venda.</p>'}<h3>O.S.</h3>${os.length?'<table><tr><th>Data</th><th>Número</th><th>Status</th><th>Valor</th></tr>'+os.map(o=>`<tr><td>${brDate((o.criado_em||o.data||'').slice(0,10))}</td><td>${o.numero||o.codigo||o.id}</td><td>${o.status||'-'}</td><td>${money(o.valor_total||o.total||0)}</td></tr>`).join('')+'</table>':'<p class="muted">Nenhuma O.S.</p>'}<h3>Motos</h3>${motos.length?'<table><tr><th>Placa</th><th>Modelo</th><th>Ano</th></tr>'+motos.map(m=>`<tr><td>${m.placa||'-'}</td><td>${m.marca||''} ${m.modelo||''}</td><td>${m.ano||'-'}</td></tr>`).join('')+'</table>':'<p class="muted">Nenhuma moto.</p>'}<h3>NF-e / NFC-e / NFS-e</h3>${notas.length?'<table><tr><th>Data</th><th>Tipo</th><th>Status</th></tr>'+notas.map(n=>`<tr><td>${brDate((n.criado_em||'').slice(0,10))}</td><td>${n.tipo||'-'}</td><td>${n.status||'-'}</td></tr>`).join('')+'</table>':'<p class="muted">Nenhuma nota salva.</p>'}`;
+  document.getElementById('clienteHistoricoConteudo').innerHTML=`<h3>Compras</h3>${vendas.length?'<table><tr><th>Data</th><th>Descrição</th><th>Valor</th></tr>'+vendas.map(v=>htmlMotoSOS`<tr><td>${brDate((v.criado_em||v.data||'').slice(0,10))}</td><td>${v.descricao||v.numero||'Venda'}</td><td>${money(v.valor_total||v.valor||0)}</td></tr>`).join('')+'</table>':'<p class="muted">Nenhuma venda.</p>'}<h3>O.S.</h3>${os.length?'<table><tr><th>Data</th><th>Número</th><th>Status</th><th>Valor</th></tr>'+os.map(o=>htmlMotoSOS`<tr><td>${brDate((o.criado_em||o.data||'').slice(0,10))}</td><td>${o.numero||o.codigo||o.id}</td><td>${o.status||'-'}</td><td>${money(o.valor_total||o.total||0)}</td></tr>`).join('')+'</table>':'<p class="muted">Nenhuma O.S.</p>'}<h3>Motos</h3>${motos.length?'<table><tr><th>Placa</th><th>Modelo</th><th>Ano</th></tr>'+motos.map(m=>htmlMotoSOS`<tr><td>${m.placa||'-'}</td><td>${m.marca||''} ${m.modelo||''}</td><td>${m.ano||'-'}</td></tr>`).join('')+'</table>':'<p class="muted">Nenhuma moto.</p>'}<h3>NF-e / NFC-e / NFS-e</h3>${notas.length?'<table><tr><th>Data</th><th>Tipo</th><th>Status</th></tr>'+notas.map(n=>htmlMotoSOS`<tr><td>${brDate((n.criado_em||'').slice(0,10))}</td><td>${n.tipo||'-'}</td><td>${n.status||'-'}</td></tr>`).join('')+'</table>':'<p class="muted">Nenhuma nota salva.</p>'}`;
   document.getElementById('clienteHistoricoModal').classList.add('show');
 }
 function fecharHistoricoCliente(){document.getElementById('clienteHistoricoModal').classList.remove('show');}
@@ -3635,8 +3746,8 @@ function salvarCompra(){v31InitArrays();const c=compraPayload('Pedido');if(!c.fo
 function receberCompra(){v31InitArrays();const c=compraPayload('Recebida');if(!c.fornecedor||!c.produto_id||c.quantidade<=0)return alert('Fornecedor, produto e quantidade são obrigatórios.');const p=(db.estoque||[]).find(x=>String(x.id)===String(c.produto_id));if(p){p.qtd=Number(p.qtd||p.quantidade||0)+c.quantidade;p.quantidade=p.qtd;p.ultima_compra=c.data;p.ultimo_fornecedor=c.fornecedor;}db.compras.unshift(c);v31Audit('Estoque','Recebeu compra e lançou estoque');limparCompra();renderAll();alert('Compra recebida e estoque atualizado.');}
 function gerarNFEntradaDaCompra(){v31InitArrays();const c=compraPayload('NF Entrada gerada');db.notasFiscais.unshift({id:Date.now(),oficina_id:c.oficina_id,tipo:'NF Entrada',numero:'',fornecedor:c.fornecedor,produto_id:c.produto_id,valor:c.valor_total,status:'Pendente',data_emissao:c.data,criado_em:new Date().toISOString(),observacao:'NF Entrada gerada a partir de compra.'});db.compras.unshift(c);v31Audit('NF Entrada','Gerou NF Entrada a partir de compra');limparCompra();renderAll();}
 function setFiscalFiltro(tipo){fiscalFiltroAtual=tipo;['Todos','NFe','NFCe','NFSe'].forEach(k=>{const e=document.getElementById('tabFiscal'+k);if(e)e.classList.remove('active')});const id='tabFiscal'+(tipo==='NF-e'?'NFe':tipo==='NFC-e'?'NFCe':tipo==='NFS-e'?'NFSe':'Todos');const b=document.getElementById(id);if(b)b.classList.add('active');renderFiscalV31();}
-function statusFiscalBadge(s){const st=String(s||'Pendente');if(st==='Emitida')return'<span class="nf-status emitida">Emitida</span>';if(st==='Cancelada')return'<span class="nf-status cancelada">Cancelada</span>';if(st==='Erro')return'<span class="nf-status erro">Erro</span>';return'<span class="nf-status pendente">Pendente</span>';}
-function renderFiscalV31(){v31InitArrays();let notas=db.notasFiscais||[];if(fiscalFiltroAtual!=='Todos')notas=notas.filter(n=>String(n.tipo)===fiscalFiltroAtual);table('fiscalTable',['Data','Tipo','Número','Cliente/Fornecedor','Valor','Status','Ações'],notas.map(n=>[brDate((n.data_emissao||n.criado_em||'').slice(0,10)),n.tipo||'-',n.numero||n.serie||'-',n.cliente_nome||n.fornecedor||'-',money(n.valor||n.valor_total||0),statusFiscalBadge(n.status),`<button class="small blue" onclick="marcarNotaEmitida(${n.id})">Marcar emitida</button> <button class="small secondary" onclick="marcarNotaCancelada(${n.id})">Cancelar</button>`]));}
+function statusFiscalBadge(s){const st=String(s||'Pendente');if(st==='Emitida')return htmlMotoSOS`<span class="nf-status emitida">Emitida</span>`;if(st==='Cancelada')return htmlMotoSOS`<span class="nf-status cancelada">Cancelada</span>`;if(st==='Erro')return htmlMotoSOS`<span class="nf-status erro">Erro</span>`;return htmlMotoSOS`<span class="nf-status pendente">Pendente</span>`;}
+function renderFiscalV31(){v31InitArrays();let notas=db.notasFiscais||[];if(fiscalFiltroAtual!=='Todos')notas=notas.filter(n=>String(n.tipo)===fiscalFiltroAtual);table('fiscalTable',['Data','Tipo','Número','Cliente/Fornecedor','Valor','Status','Ações'],notas.map(n=>[brDate((n.data_emissao||n.criado_em||'').slice(0,10)),n.tipo||'-',n.numero||n.serie||'-',n.cliente_nome||n.fornecedor||'-',money(n.valor||n.valor_total||0),statusFiscalBadge(n.status),htmlMotoSOS`<button class="small blue" onclick="marcarNotaEmitida(${n.id})">Marcar emitida</button> <button class="small secondary" onclick="marcarNotaCancelada(${n.id})">Cancelar</button>`]));}
 function marcarNotaEmitida(id){v31InitArrays();const n=db.notasFiscais.find(x=>String(x.id)===String(id));if(n){n.status='Emitida';v31Audit('Fiscal','Marcou nota emitida');renderAll();}}
 function marcarNotaCancelada(id){v31InitArrays();const n=db.notasFiscais.find(x=>String(x.id)===String(id));if(n){n.status='Cancelada';v31Audit('Fiscal','Cancelou nota');renderAll();}}
 function limparGarantia(){['garantiaEditId','garantiaOrigem','garantiaNome','garantiaPrazo','garantiaDataInicio','garantiaDesc'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});}
@@ -3645,7 +3756,7 @@ function garantiaVencimento(g){const d=new Date((g.data_inicio||todayISO())+'T00
 function garantiaStatusAtual(g){if(g.status==='Cancelada')return'Cancelada';return todayISO()>garantiaVencimento(g)?'Vencida':'Ativa';}
 function renderGarantiasV31(){v31InitArrays();table('garantiasTable',['Cliente','Origem','Garantia','Prazo','Vencimento','Status','Descrição'],(db.garantias||[]).map(g=>[nomeClienteV31(g.cliente_id),g.origem||'-',g.nome||'-',`${g.prazo||0} dias`,brDate(garantiaVencimento(g)),garantiaStatusAtual(g),g.descricao||'-']));}
 function renderComprasV31(){v31InitArrays();table('comprasTable',['Data','Fornecedor','Produto','Qtd','Unitário','Total','Status','Obs'],(db.compras||[]).map(c=>[brDate(c.data),c.fornecedor||'-',produtoNomeV31(c.produto_id),c.quantidade||0,money(c.valor_unitario||0),money(c.valor_total||0),c.status||'Pedido',c.observacao||'-']));}
-function renderNFEntradaV31(){v31InitArrays();const notas=(db.notasFiscais||[]).filter(n=>String(n.tipo||'')==='NF Entrada');table('nfEntradaTable',['Data','Número','Fornecedor','Valor','Status','Ações'],notas.map(n=>[brDate((n.data_emissao||n.criado_em||'').slice(0,10)),n.numero||'-',n.fornecedor||'-',money(n.valor||n.valor_total||0),statusFiscalBadge(n.status),`<button class="small blue" onclick="marcarNotaEmitida(${n.id})">Visualizar/Emitida</button> <button class="small secondary" onclick="marcarNotaCancelada(${n.id})">Cancelar</button>`]));}
+function renderNFEntradaV31(){v31InitArrays();const notas=(db.notasFiscais||[]).filter(n=>String(n.tipo||'')==='NF Entrada');table('nfEntradaTable',['Data','Número','Fornecedor','Valor','Status','Ações'],notas.map(n=>[brDate((n.data_emissao||n.criado_em||'').slice(0,10)),n.numero||'-',n.fornecedor||'-',money(n.valor||n.valor_total||0),statusFiscalBadge(n.status),htmlMotoSOS`<button class="small blue" onclick="marcarNotaEmitida(${n.id})">Visualizar/Emitida</button> <button class="small secondary" onclick="marcarNotaCancelada(${n.id})">Cancelar</button>`]));}
 function renderDashboardExecutivoV31(){const hoje=todayISO(),mes=hoje.slice(0,7),vendas=db.vendas||[],os=db.os||db.ordens||db.ordens_servico||[];const vm=vendas.filter(v=>String(v.data||v.criado_em||'').slice(0,7)===mes);const fatHoje=vendas.filter(v=>String(v.data||v.criado_em||'').slice(0,10)===hoje).reduce((s,v)=>s+Number(v.total||v.valor_total||v.valor||0),0);const fatMes=vm.reduce((s,v)=>s+Number(v.total||v.valor_total||v.valor||0),0);const set=(id,val)=>{const e=document.getElementById(id);if(e)e.innerText=val};set('dashFatHoje',money(fatHoje));set('dashFatMes',money(fatMes));set('dashTicketMedio',money(vm.length?fatMes/vm.length:0));set('dashClientesAtivos',(db.clientes||[]).length);set('dashProdutosVendidos',vendas.reduce((s,v)=>s+Number(v.qtd||v.quantidade||1),0));set('dashOsAbertas',os.filter(o=>!['Entregue','Finalizada'].includes(o.status)).length);set('dashOsConcluidas',os.filter(o=>['Entregue','Finalizada'].includes(o.status)).length);set('dashProdutosEstoque',(db.estoque||[]).length);}
 function preencherSelectsV31(){const prod=(db.estoque||[]).map(p=>[p.id,p.produto||p.nome||p.descricao||'-']);const cli=(db.clientes||[]).map(c=>[c.id,c.nome||c.nome_razao_social||'-']);if(typeof fillSelect==='function'){fillSelect('compraProduto',prod);fillSelect('nfEntProduto',prod);fillSelect('garantiaCliente',cli);}}
 function garantirMenuV31(){const nav=document.getElementById('nav');if(!nav||document.getElementById('nav-compras'))return;[['compras','📦 Compras'],['nfEntrada','📥 NF Entrada'],['fiscal','📄 Fiscal'],['garantias','🛡 Garantias']].forEach(([id,label])=>{if(document.getElementById('nav-'+id))return;const b=document.createElement('button');b.id='nav-'+id;b.innerHTML=label;b.onclick=()=>showSection(id);nav.appendChild(b);});}
@@ -3702,7 +3813,7 @@ function renderFinanceiroFormasV31(){
   });
   const total=Object.values(totais).reduce((a,b)=>a+b,0);
 
-  box.innerHTML=`
+  box.innerHTML=htmlMotoSOS`
     <div class="fin-forma-card dinheiro"><h3>Dinheiro</h3><div class="valor">${money(totais.Dinheiro)}</div></div>
     <div class="fin-forma-card pix"><h3>PIX</h3><div class="valor">${money(totais.PIX)}</div></div>
     <div class="fin-forma-card debito"><h3>Débito</h3><div class="valor">${money(totais.Débito)}</div></div>
@@ -3732,7 +3843,7 @@ function renderFinanceiroFormasV31(){
     return `
       <div class="fin-dia-box">
         <div class="fin-dia-head">
-          <h3>${brDate(d)}</h3>
+          <h3>${escapeHtml(brDate(d))}</h3>
           <b>Total: ${money(subtotal)}</b>
         </div>
         <div class="row">
@@ -3743,7 +3854,7 @@ function renderFinanceiroFormasV31(){
         </div>
         <table>
           <tr><th>Forma</th><th>Descrição</th><th>Valor</th></tr>
-          ${g.itens.map(i=>`
+          ${g.itens.map(i=>htmlMotoSOS`
             <tr>
               <td><span class="fin-badge ${i.formaNormalizada==='PIX'?'pix':i.formaNormalizada==='Débito'?'debito':i.formaNormalizada==='Crédito'?'credito':'dinheiro'}">${i.formaNormalizada}</span></td>
               <td>${i.descricao||i.produto||i.numero||i.cliente_nome||i.status||'Entrada'}</td>
@@ -3830,16 +3941,16 @@ async function abrirChamadoPro(){
 }
 function statusChamadoGestaoBadge(status){
   const s=String(status||'Aberto');
-  if(s==='Resolvido')return '<span class="badge green">Resolvido</span>';
-  if(s==='Em atendimento')return '<span class="badge blue">Em atendimento</span>';
-  if(s==='Aberto')return '<span class="badge yellow">Aberto</span>';
-  return '<span class="badge">'+s+'</span>';
+  if(s==='Resolvido')return htmlMotoSOS`<span class="badge green">Resolvido</span>`;
+  if(s==='Em atendimento')return htmlMotoSOS`<span class="badge blue">Em atendimento</span>`;
+  if(s==='Aberto')return htmlMotoSOS`<span class="badge yellow">Aberto</span>`;
+  return htmlMotoSOS`<span class="badge">${s}</span>`;
 }
 function prioridadeChamadoGestaoBadge(p){
   const s=String(p||'Normal');
-  if(s==='Urgente')return '<span class="badge red">Urgente</span>';
-  if(s==='Alta')return '<span class="badge yellow">Alta</span>';
-  return '<span class="badge">'+s+'</span>';
+  if(s==='Urgente')return htmlMotoSOS`<span class="badge red">Urgente</span>`;
+  if(s==='Alta')return htmlMotoSOS`<span class="badge yellow">Alta</span>`;
+  return htmlMotoSOS`<span class="badge">${s}</span>`;
 }
 function verDetalhesChamadoGestao(id){
   const c=(db.chamados||[]).find(x=>String(x.id)===String(id));
@@ -3859,10 +3970,10 @@ function renderChamadosPro(){
   const chamados=(db.chamados||[]);
   table('chamadosTable',['Data','Assunto','Prioridade','Status','Ações'],chamados.map(c=>[
     c.criado_em?new Date(c.criado_em).toLocaleString('pt-BR'):'-',
-    `<b>${c.assunto||'-'}</b><br><span class="muted">${String(c.descricao||'').slice(0,80)}${String(c.descricao||'').length>80?'...':''}</span>`,
+    htmlMotoSOS`<b>${c.assunto||'-'}</b><br><span class="muted">${String(c.descricao||'').slice(0,80)}${String(c.descricao||'').length>80?'...':''}</span>`,
     prioridadeChamadoGestaoBadge(c.prioridade),
     statusChamadoGestaoBadge(c.status),
-    `<button class="small blue" onclick="verDetalhesChamadoGestao(${c.id})">Ver</button>`
+    htmlMotoSOS`<button class="small blue" onclick="verDetalhesChamadoGestao(${c.id})">Ver</button>`
   ]));
 }
 
@@ -3874,6 +3985,7 @@ function renderChamadosPro(){
 let avisosAdminFila=[];
 let avisoAdminAtual=null;
 let canalRealtimeAvisos=null;
+let clienteRealtimeAvisos=null;
 let intervaloAvisosAdmin=null;
 function chaveAvisosLidos(){return `motosos_avisos_lidos_oficina_${currentOficinaId||0}`;}
 function idsAvisosLidos(){try{return JSON.parse(localStorage.getItem(chaveAvisosLidos())||'[]').map(Number);}catch(e){return [];}}
@@ -3930,9 +4042,9 @@ function iniciarAvisosAdminMotoSOS(){
   if(intervaloAvisosAdmin)clearInterval(intervaloAvisosAdmin);intervaloAvisosAdmin=setInterval(verificarAvisosAdminMotoSOS,5000);
   try{
     if(window.supabase?.createClient){
-      const cliente=window.supabase.createClient(SUPABASE_REST_URL.replace('/rest/v1',''),SUPABASE_KEY);
-      if(canalRealtimeAvisos)cliente.removeChannel(canalRealtimeAvisos);
-      canalRealtimeAvisos=cliente.channel(`avisos-oficina-${currentOficinaId}`).on('postgres_changes',{event:'*',schema:'public',table:'avisos'},()=>verificarAvisosAdminMotoSOS()).subscribe();
+      if(clienteRealtimeAvisos&&canalRealtimeAvisos)clienteRealtimeAvisos.removeChannel(canalRealtimeAvisos);
+      clienteRealtimeAvisos=window.supabase.createClient(SUPABASE_REST_URL.replace('/rest/v1',''),SUPABASE_KEY);
+      canalRealtimeAvisos=clienteRealtimeAvisos.channel(`avisos-oficina-${currentOficinaId}`).on('postgres_changes',{event:'*',schema:'public',table:'avisos'},()=>verificarAvisosAdminMotoSOS()).subscribe();
     }
   }catch(e){console.warn('Realtime de avisos indisponível; usando verificação periódica.',e);}
 }
@@ -4148,7 +4260,7 @@ async function verificarAtualizacaoMotoSOS(){
   if(versao)versao.innerText = nova.versao || `Atualização #${novoId}`;
 
   if(resumo){
-    resumo.innerHTML = `
+    resumo.innerHTML = htmlMotoSOS`
       <b>Nova versão:</b> ${nova.versao || '-'}<br>
       <b>Publicada em:</b> ${
         nova.criado_em
@@ -4200,7 +4312,7 @@ async function confirmarAtualizacaoMotoSOS(){
   url.searchParams.set('_atualizado', String(Date.now()));
 
   try{
-    try{localStorage.setItem(storageKey(),JSON.stringify(db));}catch(e){console.warn('Cache não gravado; iniciando a atualização com a sessão atual.');}
+    try{limparCredenciaisCacheMotoSOS();localStorage.setItem(storageKey(),JSON.stringify(db));}catch(e){console.warn('Cache não gravado; iniciando a atualização com a sessão atual.');}
     sessionStorage.setItem('motosos_sessao_atualizacao',JSON.stringify({
       user:current.user,pass:current.pass,oficinaId:currentOficinaId,
       secao:document.querySelector('.section.active')?.id||'dashboard',
@@ -4247,11 +4359,11 @@ function renderAll(){
  fillSelect('vendaVendedor',db.funcionarios.filter(f=>String(f.status||'Ativo')==='Ativo').map(f=>[f.id,`${f.nome} - ${f.cargo||''}`]));
  fillSelect('osVendedor',db.funcionarios.filter(f=>String(f.status||'Ativo')==='Ativo').map(f=>[f.id,`${f.nome} - ${f.cargo||''}`]));
  let estoqueDisponivel=db.estoque.filter(p=>Number(p.qtd)>0).map(p=>[p.id,`${p.codigo} - ${p.produto} | ${money(p.venda)} | Est: ${p.qtd}`]);fillSelect('vendaProduto',estoqueDisponivel);fillSelect('osPecaSelect',estoqueDisponivel);fillSelect('osMecanico',db.funcionarios.filter(f=>String(f.status||'Ativo')==='Ativo' && String(f.cargo||'').toLowerCase().includes('mecânico')).map(f=>[f.id,`${f.nome} (${f.comissao}% comissão)`]));
- table('clientesTable',['Nome','Telefone','CPF/CNPJ','Cidade','Ações'],db.clientes.map(c=>[c.nome,c.telefone,c.doc||'-',c.cidade||'-',`<button class="small blue" onclick="editCliente(${c.id})">Editar</button> <button class=\"small secondary\" onclick=\"abrirHistoricoCliente(${c.id})\">Histórico</button> <button class="small secondary" onclick="abrirHistoricoCliente(${c.id})">Histórico</button> <button class="small secondary" onclick="deleteCliente(${c.id})">Excluir</button>`]));
- table('motosTable',['Placa','Marca','Modelo','Cor','Ano','Cliente','Ações'],db.motos.map(m=>[m.placa,m.marca,m.modelo,m.cor,m.ano,clienteName(m.clienteId),`<button class="small secondary" onclick="deleteMoto(${m.id})">Excluir</button>`]));
- table('osTable',['Nº','Data','Cliente','Moto','Vendedor','Total','Status','Ações'],db.os.map(o=>[o.numero,brDate(o.data),clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money(osTotal(o)),`<span class="badge yellow">${normalizarStatusOSValor(o.status)}</span>`,`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button> <button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`]));
+ table('clientesTable',['Nome','Telefone','CPF/CNPJ','Cidade','Ações'],db.clientes.map(c=>[c.nome,c.telefone,c.doc||'-',c.cidade||'-',htmlMotoSOS`<button class="small blue" onclick="editCliente(${c.id})">Editar</button> <button class=\"small secondary\" onclick=\"abrirHistoricoCliente(${c.id})\">Histórico</button> <button class="small secondary" onclick="abrirHistoricoCliente(${c.id})">Histórico</button> <button class="small secondary" onclick="deleteCliente(${c.id})">Excluir</button>`]));
+ table('motosTable',['Placa','Marca','Modelo','Cor','Ano','Cliente','Ações'],db.motos.map(m=>[m.placa,m.marca,m.modelo,m.cor,m.ano,clienteName(m.clienteId),htmlMotoSOS`<button class="small secondary" onclick="deleteMoto(${m.id})">Excluir</button>`]));
+ table('osTable',['Nº','Data','Cliente','Moto','Vendedor','Total','Status','Ações'],db.os.map(o=>[o.numero,brDate(o.data),clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money(osTotal(o)),htmlMotoSOS`<span class="badge yellow">${normalizarStatusOSValor(o.status)}</span>`,htmlMotoSOS`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button> <button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`]));
  let aguardando=db.os.filter(o=>o.status==='Aguardando aprovação');
- table('orcamentosTable',['O.S.','Cliente','Moto','Vendedor','Peças','Mão de obra','Total','Ações'],aguardando.map(o=>[o.numero,clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money((o.pecas||[]).reduce((s,p)=>s+p.total,0)),money((o.mao||[]).reduce((s,m)=>s+m.valor,0)),money(osTotal(o)),`<button class="small blue" onclick="startEditOS(${o.id});showSection('os')">Editar O.S.</button>`]));
+ table('orcamentosTable',['O.S.','Cliente','Moto','Vendedor','Peças','Mão de obra','Total','Ações'],aguardando.map(o=>[o.numero,clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money((o.pecas||[]).reduce((s,p)=>s+p.total,0)),money((o.mao||[]).reduce((s,m)=>s+m.valor,0)),money(osTotal(o)),htmlMotoSOS`<button class="small blue" onclick="startEditOS(${o.id});showSection('os')">Editar O.S.</button>`]));
  table('vendasTable',['Nº','Data','Cliente','Vendedor','Produto','Qtd','Total','Pagamento','Status','Caixa/NF'],db.vendas.map(v=>[
    v.numero,
    brDate(v.data),
@@ -4261,12 +4373,12 @@ function renderAll(){
    v.qtd,
    money(v.total),
    v.formaPagamento||'-',
-   v.status==='Finalizada'?'<span class="badge green">Pago</span>':'<span class="badge yellow">Aguardando caixa</span>',
-   v.status==='Finalizada'?`<button class="small blue" onclick="openPrintComprovanteVenda(${v.id},'vendas')">Comprovante</button> <button class="small secondary" onclick="estornarVendaCaixa(${v.id})">Estornar</button>`:`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id});showSection('caixa')">Receber no caixa</button>`
+   v.status==='Finalizada'?htmlMotoSOS`<span class="badge green">Pago</span>`:htmlMotoSOS`<span class="badge yellow">Aguardando caixa</span>`,
+   v.status==='Finalizada'?htmlMotoSOS`<button class="small blue" onclick="openPrintComprovanteVenda(${v.id},'vendas')">Comprovante</button> <button class="small secondary" onclick="estornarVendaCaixa(${v.id})">Estornar</button>`:htmlMotoSOS`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id});showSection('caixa')">Receber no caixa</button>`
  ]));
  table('estoqueTable',['Código','Produto','Qtd','Custo','Venda','Lucro','NCM','CFOP','Unid.','Fornecedor','Ações'],db.estoque.map(p=>{
    let margem=(Number(p.custo)>0 && Number(p.venda)>0)?(((Number(p.venda)-Number(p.custo))/Number(p.custo))*100).toFixed(2).replace('.',',')+'%':'-';
-   return [p.codigo,p.produto,p.qtd,money(p.custo),money(p.venda),margem,p.ncm||'-',p.cfop||'-',p.unidade_comercial||'UN',p.fornecedor||'-',`<button class="small blue" onclick="editEstoque(${p.id})">Editar</button> <button class="small secondary" onclick="deleteEstoque(${p.id})">Excluir</button>`]
+   return [p.codigo,p.produto,p.qtd,money(p.custo),money(p.venda),margem,p.ncm||'-',p.cfop||'-',p.unidade_comercial||'UN',p.fornecedor||'-',htmlMotoSOS`<button class="small blue" onclick="editEstoque(${p.id})">Editar</button> <button class="small secondary" onclick="deleteEstoque(${p.id})">Excluir</button>`]
  }));
  let codEl=document.getElementById('estoqueCodigo');
  if(codEl && !codEl.value) codEl.value=proximoCodigoProduto();
@@ -4281,16 +4393,16 @@ function renderAll(){
  let manuais=(db.financeiro||[]).filter(f=>dentroPeriodo(f.data));
  manuais.forEach(f=>movs.push([brDate(f.data),f.tipo,f.desc,money(f.tipo==='Saída'?-f.valor:f.valor)]));
  table('financeiroTable',['Data','Tipo','Descrição','Valor'],movs);
- let funcRows=db.funcionarios.map(f=>{let mao=db.os.flatMap(o=>o.mao||[]).filter(m=>String(m.funcId)===String(f.id));let total=mao.reduce((s,m)=>s+m.valor,0);let com=mao.reduce((s,m)=>s+m.comissaoValor,0);return[f.nome,f.cpf||'-',f.telefone||'-',f.cargo||'-',money(f.salario||0),(f.comissao||0)+'%',f.dataAdmissao?brDate(f.dataAdmissao):'-',f.status||'Ativo',money(total),money(com),`<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`]});table('funcTable',['Nome','CPF','Telefone','Cargo','Salário','Comissão','Admissão','Status','M.O. feita','Comissão a pagar','Ações'],funcRows);
+ let funcRows=db.funcionarios.map(f=>{let mao=db.os.flatMap(o=>o.mao||[]).filter(m=>String(m.funcId)===String(f.id));let total=mao.reduce((s,m)=>s+m.valor,0);let com=mao.reduce((s,m)=>s+m.comissaoValor,0);return[f.nome,f.cpf||'-',f.telefone||'-',f.cargo||'-',money(f.salario||0),(f.comissao||0)+'%',f.dataAdmissao?brDate(f.dataAdmissao):'-',f.status||'Ativo',money(total),money(com),htmlMotoSOS`<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`]});table('funcTable',['Nome','CPF','Telefone','Cargo','Salário','Comissão','Admissão','Status','M.O. feita','Comissão a pagar','Ações'],funcRows);
  let usuariosSistema=(db.usuariosSistema||[]);
  table('usersTable',['ID','Nome','Login','Perfil','Status','Primeiro acesso','Ações'],usuariosSistema.map(u=>[
    u.id,
    u.nome||'-',
    u.email||'-',
    mapPerfilToRole(u.perfil),
-   u.ativo?'<span class="badge green">Ativo</span>':'<span class="badge red">Inativo</span>',
-   u.primeiro_acesso?'<span class="badge yellow">Sim</span>':'Não',
-   `<div class="user-actions"><button class="small blue" onclick="editarUsuarioSistema(${u.id})">Editar</button><button class="small secondary" onclick="redefinirSenhaUsuarioSistema(${u.id})">Redefinir senha</button><button class="small ${u.ativo?'secondary':'green'}" onclick="alternarUsuarioSistema(${u.id},${!u.ativo})">${u.ativo?'Desativar':'Ativar'}</button></div>`
+   u.ativo?htmlMotoSOS`<span class="badge green">Ativo</span>`:htmlMotoSOS`<span class="badge red">Inativo</span>`,
+   u.primeiro_acesso?htmlMotoSOS`<span class="badge yellow">Sim</span>`:'Não',
+   htmlMotoSOS`<div class="user-actions"><button class="small blue" onclick="editarUsuarioSistema(${u.id})">Editar</button><button class="small secondary" onclick="redefinirSenhaUsuarioSistema(${u.id})">Redefinir senha</button><button class="small ${u.ativo?'secondary':'green'}" onclick="alternarUsuarioSistema(${u.id},${!u.ativo})">${u.ativo?'Desativar':'Ativar'}</button></div>`
  ]));
  table('auditTable',['Data','Usuário','Ação'],db.audit.map(a=>[a.data,a.user,a.msg]));
  document.getElementById('empNome').value=db.empresa.nome||'';
@@ -4302,10 +4414,10 @@ function renderAll(){
  const empFonteDoc=document.getElementById('empFonteDoc');if(empFonteDoc)empFonteDoc.value=db.empresa.docFonte||'';
  let logoPrev=document.getElementById('empLogoPreview');
  if(logoPrev){
-   logoPrev.innerHTML=db.empresa.logo?`<div class="muted">Logo atual:</div><img src="${db.empresa.logo}" style="max-width:120px;max-height:80px;background:white;border-radius:8px;padding:6px;margin-top:6px">`:'Nenhuma logo cadastrada.';
+   logoPrev.innerHTML=db.empresa.logo?htmlMotoSOS`<div class="muted">Logo atual:</div><img src="${logoSeguraMotoSOS(db.empresa.logo)}" referrerpolicy="no-referrer" style="max-width:120px;max-height:80px;background:white;border-radius:8px;padding:6px;margin-top:6px">`:'Nenhuma logo cadastrada.';
  }
  let ps=document.getElementById('planSelect'); if(ps)ps.value=db.plan;
- let pr=document.getElementById('planoResumo'); if(pr)pr.innerHTML=`<b>Plano atual:</b> ${db.plan||'Start'}<br><b>Oficina:</b> ${db.empresa.nome||'MotoSOS Gestão'}<br><b>Regra:</b> ${planKey()==='pro'?'Acesso total':'Somente categoria Operação + Plano'}`;
+ let pr=document.getElementById('planoResumo'); if(pr)pr.innerHTML=htmlMotoSOS`<b>Plano atual:</b> ${db.plan||'Start'}<br><b>Oficina:</b> ${db.empresa.nome||'MotoSOS Gestão'}<br><b>Regra:</b> ${planKey()==='pro'?'Acesso total':'Somente categoria Operação + Plano'}`;
  renderPlanoComercial();
  let cm=document.getElementById('cargoMecanicoNome'); if(cm) cm.value=cargoNome('mecanico');
  let cv=document.getElementById('cargoVendedorNome'); if(cv) cv.value=cargoNome('vendedor');
@@ -4327,31 +4439,31 @@ function renderAll(){
  let fe=document.getElementById('finEntradasTotal'); if(fe)fe.innerText=money(onlineEntradas+finEnt+caixaEntradas);
  let fsa=document.getElementById('finSaidasTotal'); if(fsa)fsa.innerText=money(finSai+caixaSaidas);
  let limits=planLimits();
- let qtdAdm=db.users.filter(u=>u.role==='ADM').length, qtdAt=db.users.filter(u=>u.role==='Atendimento').length;
- let pui=document.getElementById('planUserInfo'); if(pui)pui.innerHTML=`Plano <b>${limits.nome}</b>: permite <b>${limits.adm} instalação(ões) ADM</b> em PC ou celular e <b>${limits.atendimento} instalação(ões) de vendedor/atendimento</b> em aparelhos separados. Usuários cadastrados agora: <b>${qtdAdm} ADM</b> e <b>${qtdAt} Atendimento</b>.`; let ds=document.getElementById('deviceSummary'); if(ds)ds.innerHTML=`<div class="card"><div class="muted">Instalações ADM usadas</div><div class="metric">${qtdAdm}/${limits.adm}</div></div><div class="card"><div class="muted">Instalações vendedor/atendimento usadas</div><div class="metric">${qtdAt}/${limits.atendimento}</div></div>`;
+ let qtdAdm=(db.usuariosSistema||[]).filter(u=>mapPerfilToRole(u.perfil)==='ADM').length, qtdAt=(db.usuariosSistema||[]).filter(u=>mapPerfilToRole(u.perfil)==='Atendente').length;
+ let pui=document.getElementById('planUserInfo'); if(pui)pui.innerHTML=htmlMotoSOS`Plano <b>${limits.nome}</b>: permite <b>${limits.adm} instalação(ões) ADM</b> em PC ou celular e <b>${limits.atendimento} instalação(ões) de vendedor/atendimento</b> em aparelhos separados. Usuários cadastrados agora: <b>${qtdAdm} ADM</b> e <b>${qtdAt} Atendimento</b>.`; let ds=document.getElementById('deviceSummary'); if(ds)ds.innerHTML=htmlMotoSOS`<div class="card"><div class="muted">Instalações ADM usadas</div><div class="metric">${qtdAdm}/${limits.adm}</div></div><div class="card"><div class="muted">Instalações vendedor/atendimento usadas</div><div class="metric">${qtdAt}/${limits.atendimento}</div></div>`;
  table('chamadosTable',['Data','Assunto','Prioridade','Status'],(db.chamados||[]).map(c=>[c.data,c.assunto,c.prioridade,c.status]));
  const vendasPendentes=(db.vendas||[]).filter(v=>v.status!=='Finalizada');
  const osProntasPendentes=(db.os||[]).filter(o=>statusOSProntoCaixa(o.status));
  const linhasCaixaPendentes=[
    ...vendasPendentes.map(v=>[
-     '<span class="badge blue">Venda</span>',
+     htmlMotoSOS`<span class="badge blue">Venda</span>`,
      v.numero,
      brDate(v.data),
      clienteName(v.clienteId),
      `${v.produto||'-'}${v.qtd?` | Qtd ${v.qtd}`:''}`,
      money(v.total),
-     '<span class="badge yellow">Aguardando pagamento</span>',
-     `<button class="small green" onclick="iniciarPagamentoCaixa(${v.id})">Receber / NF</button>`
+     htmlMotoSOS`<span class="badge yellow">Aguardando pagamento</span>`,
+     htmlMotoSOS`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id})">Receber / NF</button>`
    ]),
    ...osProntasPendentes.map(o=>[
-     '<span class="badge green">O.S.</span>',
+     htmlMotoSOS`<span class="badge green">O.S.</span>`,
      o.numero,
      brDate(o.dataEntrada||o.data),
      clienteName(o.clienteId),
      `${motoName(o.motoId)} | ${o.problema||'Serviço concluído'}`,
      money(osTotal(o)),
-     '<span class="badge yellow">Pronto pra retirada</span>',
-     `<button class="small green" onclick="iniciarPagamentoOS(${o.id})">Receber / NF</button>`
+     htmlMotoSOS`<span class="badge yellow">Pronto pra retirada</span>`,
+     htmlMotoSOS`<button class="small green" onclick="iniciarPagamentoOS(${o.id})">Receber / NF</button>`
    ])
  ];
  table('caixaPendentesTable',['Tipo','Nº','Data','Cliente','Descrição','Total','Status','Ação'],linhasCaixaPendentes);
@@ -4359,7 +4471,7 @@ function renderAll(){
  renderCaixa();
  renderFechamentoCaixa();
   renderPermissoesUsuario();
- table('nfEntradaTable',['Data','Fornecedor','Número','Série','Produto','Qtd','Valor','Status'],(db.notasFiscais||[]).filter(n=>n.tipo==='NF Entrada').map(n=>[brDate(n.dataEmissao),n.fornecedor||'-',n.numero||'-',n.serie||'-',(db.estoque.find(p=>String(p.id)===String(n.produtoId))||{}).produto||'-',n.qtd||'-',money(n.valor||0),`<span class="nf-status emitida">${n.status||'Registrada'}</span>`]));
+ table('nfEntradaTable',['Data','Fornecedor','Número','Série','Produto','Qtd','Valor','Status'],(db.notasFiscais||[]).filter(n=>n.tipo==='NF Entrada').map(n=>[brDate(n.dataEmissao),n.fornecedor||'-',n.numero||'-',n.serie||'-',(db.estoque.find(p=>String(p.id)===String(n.produtoId))||{}).produto||'-',n.qtd||'-',money(n.valor||0),htmlMotoSOS`<span class="nf-status emitida">${n.status||'Registrada'}</span>`]));
  atualizarCardsFinanceiroECaixa();
  }catch(e){console.error('Erro renderAll:',e);}
 }
@@ -4372,7 +4484,7 @@ function iniciarPagamentoCaixa(id){
   document.getElementById('caixaPagamentoTipo').value='Venda';
   document.getElementById('caixaPagamentoVendaId').value=v.id;
   document.getElementById('caixaPagamentoOsId').value='';
-  document.getElementById('caixaPagamentoInfo').innerHTML=`<b>${v.numero}</b><br>Tipo: Venda<br>Cliente: ${clienteName(v.clienteId)}<br>Produto: ${v.produto}<br>Qtd: ${v.qtd}<br><div class="caixa-total">${money(v.total)}</div><div class="row"><button class="secondary small" onclick="alert('Prévia da NF da venda ${v.numero}')">NF</button></div>`;
+  document.getElementById('caixaPagamentoInfo').innerHTML=htmlMotoSOS`<b>${v.numero}</b><br>Tipo: Venda<br>Cliente: ${clienteName(v.clienteId)}<br>Produto: ${v.produto}<br>Qtd: ${v.qtd}<br><div class="caixa-total">${money(v.total)}</div><div class="row"><button class="secondary small" onclick="alert('Prévia da NF da venda ${v.numero}')">NF</button></div>`;
   document.getElementById('caixaPagamentoBox').style.display='block';
 }
 function iniciarPagamentoOS(id){
@@ -4384,7 +4496,7 @@ function iniciarPagamentoOS(id){
   document.getElementById('caixaPagamentoTipo').value='OS';
   document.getElementById('caixaPagamentoVendaId').value='';
   document.getElementById('caixaPagamentoOsId').value=o.id;
-  document.getElementById('caixaPagamentoInfo').innerHTML=`<b>${o.numero}</b><br>Tipo: Ordem de Serviço<br>Cliente: ${clienteName(o.clienteId)}<br>Moto: ${motoName(o.motoId)}<br>Status: ${o.status}<br><div class="caixa-total">${money(total)}</div><div class="row"><button class="secondary small" onclick="openPrintOS(${o.id})">Imprimir O.S.</button><button class="secondary small" onclick="alert('Prévia da NF da O.S. ${o.numero}')">NF</button></div>`;
+  document.getElementById('caixaPagamentoInfo').innerHTML=htmlMotoSOS`<b>${o.numero}</b><br>Tipo: Ordem de Serviço<br>Cliente: ${clienteName(o.clienteId)}<br>Moto: ${motoName(o.motoId)}<br>Status: ${o.status}<br><div class="caixa-total">${money(total)}</div><div class="row"><button class="secondary small" onclick="openPrintOS(${o.id})">Imprimir O.S.</button><button class="secondary small" onclick="alert('Prévia da NF da O.S. ${o.numero}')">NF</button></div>`;
   document.getElementById('caixaPagamentoBox').style.display='block';
 }
 function cancelarPagamentoCaixa(){
@@ -4470,7 +4582,7 @@ function buscarCobrancaCaixa(){
 }
 function finalizarCobrancaCaixa(){finalizarVendaNoCaixa();}
 
-function globalSearch(){let q=val('globalSearch').toLowerCase(),r=[];if(!q){document.getElementById('searchResults').innerHTML='Digite na barra superior para pesquisar.';return}db.clientes.forEach(c=>{if((c.nome+c.telefone+c.doc).toLowerCase().includes(q))r.push('Cliente: '+c.nome+' - '+c.telefone)});db.motos.forEach(m=>{if((m.placa+m.modelo+m.marca).toLowerCase().includes(q))r.push('Moto: '+m.modelo+' - '+m.placa)});db.os.forEach(o=>{if((o.numero+o.problema).toLowerCase().includes(q))r.push('O.S.: '+o.numero+' - '+clienteName(o.clienteId))});document.getElementById('searchResults').innerHTML=r.length?r.map(x=>'<div>'+x+'</div>').join(''):'Nada encontrado.'}
+function globalSearch(){let q=val('globalSearch').toLowerCase(),r=[];if(!q){document.getElementById('searchResults').innerHTML='Digite na barra superior para pesquisar.';return}db.clientes.forEach(c=>{if((c.nome+c.telefone+c.doc).toLowerCase().includes(q))r.push('Cliente: '+c.nome+' - '+c.telefone)});db.motos.forEach(m=>{if((m.placa+m.modelo+m.marca).toLowerCase().includes(q))r.push('Moto: '+m.modelo+' - '+m.placa)});db.os.forEach(o=>{if((o.numero+o.problema).toLowerCase().includes(q))r.push('O.S.: '+o.numero+' - '+clienteName(o.clienteId))});document.getElementById('searchResults').innerHTML=r.length?r.map(x=>htmlMotoSOS`<div>${x}</div>`).join(''):'Nada encontrado.'}
 function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
 function osPublicUrl(o){
   const base=location.origin+location.pathname;
@@ -4516,7 +4628,7 @@ function openPrintComprovanteVenda(id,voltar='caixa'){
   }).format(d)+(horaLocal(dataPagamento)!=='-'?' às '+horaLocal(dataPagamento):''):'Não informada';
   const total=Number(v.total||0),qtd=Number(v.qtd||0),unit=Number(v.unit||0);
   const subtotal=Math.max(total,qtd*unit),desconto=Math.max(0,subtotal-total);
-  const logo=e.logo?`<img src="${escapeHtml(e.logo)}" alt="Logo da oficina">`:'';
+  const logo=logoSeguraMotoSOS(e.logo)?`<img src="${escapeHtml(logoSeguraMotoSOS(e.logo))}" alt="Logo da oficina">`:'';
   document.body.classList.add('comprovante-mode');
   document.getElementById('printDocumentoBotao').innerText='Imprimir / Salvar PDF';
   document.getElementById('printDocumentoVoltar').onclick=()=>showSection(voltar==='vendas'?'vendas':'caixa');
@@ -4565,7 +4677,7 @@ function openPrintOS(id){
   const numero=escapeHtml(o.numero||o.numero_os||('OS'+String(o.id).padStart(4,'0')));
   const link=osPublicUrl(o);
   const qr=qrUrl(link,92);
-  const logo=e.logo?`<img src="${escapeHtml(e.logo)}" alt="Logo da oficina">`:`<div class="os-print-logo-fallback">Moto<span>SOS</span></div>`;
+  const logo=logoSeguraMotoSOS(e.logo)?`<img src="${escapeHtml(logoSeguraMotoSOS(e.logo))}" alt="Logo da oficina">`:`<div class="os-print-logo-fallback">Moto<span>SOS</span></div>`;
   const mecanico=func(o.mecanicoId).nome || (o.mao||[])[0]?.mecanico || '-';
   const pecas=(o.pecas||[]).slice(0,7).map((p,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(p.nome||p.descricao||'Peça')}</td><td>${Number(p.qtd||p.quantidade||0)}</td><td>${money(p.total||0)}</td></tr>`).join('') || '<tr><td>-</td><td>Sem peças lançadas</td><td>-</td><td>R$ 0,00</td></tr>';
   const mao=(o.mao||[]).slice(0,5).map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x.desc||x.descricao||'Mão de obra')}</td><td>${escapeHtml(x.mecanico||func(x.funcId).nome||mecanico||'-')}</td><td>${money(x.valor||0)}</td></tr>`).join('') || '<tr><td>-</td><td>Sem mão de obra lançada</td><td>-</td><td>R$ 0,00</td></tr>';
@@ -4638,7 +4750,7 @@ function normalizarStatusOS(){
   ].forEach(item=>{
     const el=document.getElementById(item.id); if(!el)return;
     const atual=normalizarStatusOSValor(el.value);
-    el.innerHTML=item.opcoes.map(o=>`<option>${o}</option>`).join('');
+    el.innerHTML=item.opcoes.map(o=>htmlMotoSOS`<option>${o}</option>`).join('');
     el.value=item.opcoes.includes(atual)?atual:'Aberto';
   });
 }
@@ -4677,7 +4789,7 @@ function inserirCamposOSV11(){
   if(formCard && !document.getElementById('osMecanicoResponsavel')){
     const ref=document.getElementById('osVendedor');
     const bloco=document.createElement('div');
-    bloco.innerHTML=`
+    bloco.innerHTML=htmlMotoSOS`
       <label>Tipo da O.S.</label>
       <select id="osTipoAtendimento" onchange="atualizarObrigatoriedadeMecanicoOS()">
         <option value="Normal">Normal</option>
@@ -4696,7 +4808,7 @@ function inserirCamposOSV11(){
   if(editBox && !document.getElementById('editOSMecanicoResponsavel')){
     const ref=document.getElementById('editOSStatus');
     const bloco=document.createElement('div');
-    bloco.innerHTML=`
+    bloco.innerHTML=htmlMotoSOS`
       <label>Tipo da O.S.</label>
       <select id="editOSTipoAtendimento" onchange="atualizarObrigatoriedadeMecanicoOS()">
         <option value="Normal">Normal</option>
@@ -4946,10 +5058,10 @@ renderAll=function(){
   _renderAllV11();
   inserirCamposOSV11();normalizarStatusOS();preencherSelectMecanicosV11();
   table('osTable',['Nº','Entrada','Prevista','Cliente','Moto','Mecânico','Total','Status','Ações'],(db.os||[]).map(o=>[
-    o.numero,brDate(o.dataEntrada||o.data),brDate(o.dataPrevista),clienteName(o.clienteId),motoName(o.motoId),func(o.mecanicoId).nome||'-',money(osTotal(o)),`<span class="badge yellow">${normalizarStatusOSValor(o.status)}</span>`,`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button> <button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`
+    o.numero,brDate(o.dataEntrada||o.data),brDate(o.dataPrevista),clienteName(o.clienteId),motoName(o.motoId),func(o.mecanicoId).nome||'-',money(osTotal(o)),htmlMotoSOS`<span class="badge yellow">${normalizarStatusOSValor(o.status)}</span>`,htmlMotoSOS`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button> <button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`
   ]));
   table('funcTable',['Nome','CPF','Telefone','Cargo','Salário','Comissão %','Admissão','Status','O.S.','Produção','Comissão acum.','Ações'],(db.funcionarios||[]).map(f=>[
-    f.nome,f.cpf||'-',f.telefone||'-',f.cargo||'-',money(f.salario||0),(f.comissao||0)+'%',f.dataAdmissao?brDate(f.dataAdmissao):'-',f.status||'Ativo',f.totalOs||0,money(f.totalProduzido||0),money(f.totalComissao||0),`<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`
+    f.nome,f.cpf||'-',f.telefone||'-',f.cargo||'-',money(f.salario||0),(f.comissao||0)+'%',f.dataAdmissao?brDate(f.dataAdmissao):'-',f.status||'Ativo',f.totalOs||0,money(f.totalProduzido||0),money(f.totalComissao||0),htmlMotoSOS`<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`
   ]));
   table('auditTable',['Data','Usuário','Ação'],(db.audit||[]).map(a=>[a.data,a.user,a.msg]));
 };
@@ -4990,6 +5102,7 @@ async function abrirConsultaPublicaOS(){
 }
 
 window.addEventListener('DOMContentLoaded',async()=>{
+higienizarCachesLegadosMotoSOS();
 try{load(false);}catch(e){db=JSON.parse(JSON.stringify(defaultDB));console.warn('Cache local não carregado.');}
 const publicMode=await abrirConsultaPublicaOS();
 if(publicMode){sessionStorage.removeItem('motosos_sessao_atualizacao');document.documentElement.classList.remove('update-resuming');return;}
@@ -5092,7 +5205,7 @@ function renderTabelaFuncionariosCorrigida(){
       st.totalOs||0,
       money(st.totalProduzido||0),
       money(st.totalComissao||0),
-      `<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`
+      htmlMotoSOS`<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`
     ];
   }));
 }
