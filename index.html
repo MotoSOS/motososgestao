@@ -4930,9 +4930,14 @@ saveOSEdit=async function(){
   }catch(e){console.error(e);alert('Erro ao atualizar O.S.');}
 };
 const _loginV11=login;
-login=async function(){
-  await _loginV11();
-  if(currentOficinaId){await carregarAuditoriaSupabase(); renderAll();}
+login=async function(opcoes={}){
+  const entrou=await _loginV11(opcoes);
+  if(!entrou)return false;
+  if(currentOficinaId){
+    try{await carregarAuditoriaSupabase();renderAll();}
+    catch(e){console.warn('Auditoria pendente; sessão preservada.');}
+  }
+  return true;
 };
 const _renderAllV11=renderAll;
 renderAll=function(){
