@@ -503,38 +503,50 @@ html.update-open,body.update-open{overflow:hidden!important}
 .admin-notice-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.admin-notice-head h2{margin:0;font-size:26px}.notice-type{display:inline-block;padding:6px 10px;border-radius:999px;background:#1e3a8a;color:#bfdbfe;font-size:12px;font-weight:900}.notice-type.urgente{background:#7f1d1d;color:#fecaca}.notice-type.atencao,.notice-type.manutencao{background:#78350f;color:#fde68a}.admin-notice-message{margin:18px 0;padding:15px;border:1px dashed var(--border);border-radius:14px;background:#0b0d12;line-height:1.58;color:#dbe5f2;white-space:pre-wrap}.notice-time{font-size:12px;color:#94a3b8}
 
 
-/* Comprovante de venda: identidade compartilhada com as configurações da O.S. */
-body.comprovante-mode #printOS{width:100%!important;max-width:780px!important;min-height:0!important;border:0!important}
-.comprovante-pagina{padding:34px;color:#171717;background:#fff;font-family:Arial,Helvetica,sans-serif;line-height:1.45}
-.comprovante-oficina{text-align:center;border-bottom:1px solid #c7c7c7;padding-bottom:22px;overflow-wrap:anywhere}
-.comprovante-oficina img{display:block;max-width:220px;max-height:110px;object-fit:contain;margin:0 auto 12px}
-.comprovante-oficina h1{color:#111;font-size:30px;margin:0 0 8px;letter-spacing:0}
-.comprovante-oficina p{color:#444;font-size:13px;margin:3px 0}
-.comprovante-titulo{text-align:center;border-bottom:1px solid #c7c7c7;padding:22px 0}
-.comprovante-titulo h2{font-size:24px;color:#111;line-height:1.25;margin:0 0 16px}
-.comprovante-pago{display:inline-block;background:#dcfce7;color:#166534;border-radius:9px;padding:8px 24px;font-size:25px;font-weight:900}
-.comprovante-dados{display:grid;grid-template-columns:max-content 1fr;gap:7px 18px;margin:22px 0;font-size:14px}
-.comprovante-dados dt{font-weight:700}.comprovante-dados dd{margin:0;overflow-wrap:anywhere}
-body.comprovante-mode .comprovante-itens{display:table!important;width:100%!important;max-width:100%!important;border-collapse:collapse;white-space:normal!important;table-layout:fixed;background:#fff!important;border-radius:0!important;overflow:visible!important}
+/* Comprovante de venda estreito, como no modelo aprovado. */
+body.comprovante-mode #printOS{width:105mm!important;max-width:100%!important;min-height:0!important;border:0!important;margin:18px auto!important;box-shadow:0 8px 26px #0003!important}
+.comprovante-pagina{padding:22px 18px;color:#171717;background:#fff;font-family:Arial,Helvetica,sans-serif;line-height:1.4;overflow-wrap:anywhere}
+.comprovante-oficina{text-align:center;border-bottom:1px solid #c7c7c7;padding-bottom:15px}
+.comprovante-oficina img{display:block;max-width:180px;max-height:75px;object-fit:contain;margin:0 auto 10px}
+.comprovante-oficina h1{color:#111;font-size:24px;margin:0 0 6px;letter-spacing:0}
+.comprovante-oficina p{color:#444;font-size:10px;margin:3px 0}
+.comprovante-titulo{text-align:center;border-bottom:1px solid #c7c7c7;padding:15px 0}
+.comprovante-titulo h2{font-size:18px;color:#111;line-height:1.25;margin:0 0 12px}
+.comprovante-pago{display:inline-block;background:#dcfce7;color:#166534;border-radius:7px;padding:6px 20px;font-size:20px;font-weight:900}
+.comprovante-dados{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 12px;margin:16px 0;font-size:11px}
+.comprovante-dados dt{font-weight:700}.comprovante-dados dd{margin:0}
+body.comprovante-mode .comprovante-itens{display:table!important;width:100%!important;max-width:100%!important;border-collapse:collapse;white-space:normal!important;table-layout:fixed;background:#fff!important;border-radius:0!important;overflow:visible!important;margin-top:12px}
 body.comprovante-mode .comprovante-itens tbody,body.comprovante-mode .comprovante-itens tr{width:auto!important}
-body.comprovante-mode .comprovante-itens th,body.comprovante-mode .comprovante-itens td{background:#fff;color:#111;border:1px solid #bbb;padding:10px!important;font-size:13px!important;white-space:normal!important;overflow-wrap:anywhere;max-width:none;overflow:visible!important}
+body.comprovante-mode .comprovante-itens th,body.comprovante-mode .comprovante-itens td{background:#fff;color:#111;border:1px solid #bbb;padding:7px 5px!important;font-size:10px!important;white-space:normal!important;overflow-wrap:anywhere;max-width:none;overflow:visible!important;text-overflow:clip}
 body.comprovante-mode .comprovante-itens th{background:#eee;font-weight:700}
-.comprovante-itens th:first-child{width:45%}.comprovante-itens th:nth-child(2){width:10%}.comprovante-itens td:not(:first-child){text-align:right}
-.comprovante-resumo{margin:20px 0}.comprovante-resumo p{display:flex;justify-content:flex-end;gap:20px;margin:6px 0;font-size:14px}.comprovante-resumo b{min-width:108px;text-align:right}
-.comprovante-total{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#fff1f2;color:#b91c1c;padding:16px 20px;border-radius:10px;font-size:24px;margin-bottom:20px}
-.comprovante-pagamento{border-top:1px solid #c7c7c7;padding-top:20px}
-.comprovante-rodape{text-align:center;border-top:1px solid #c7c7c7;padding-top:20px;font-size:14px}.comprovante-rodape strong{color:#b91c1c}.comprovante-nota{font-size:11px;color:#666;margin-top:22px}
-@media(max-width:600px){.comprovante-pagina{padding:18px 12px}.comprovante-oficina h1{font-size:24px}.comprovante-titulo h2{font-size:20px}.comprovante-dados{grid-template-columns:1fr;gap:3px;font-size:13px}.comprovante-dados dd{margin-bottom:8px}.comprovante-total{font-size:21px;padding:14px 12px}body.comprovante-mode .comprovante-itens th,body.comprovante-mode .comprovante-itens td{font-size:11px!important;padding:6px!important}}
+.comprovante-itens th:first-child{width:43%}.comprovante-itens th:nth-child(2){width:9%}.comprovante-itens td:not(:first-child){text-align:right}
+.comprovante-resumo{margin:14px 0}.comprovante-resumo p{display:flex;justify-content:flex-end;gap:12px;margin:5px 0;font-size:11px}.comprovante-resumo b{min-width:80px;text-align:right}
+.comprovante-total{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#fff1f2;color:#b91c1c;padding:12px;border-radius:8px;font-size:19px;margin-bottom:15px}
+.comprovante-pagamento{border-top:1px solid #c7c7c7;padding-top:15px}
+.comprovante-rodape{text-align:center;border-top:1px solid #c7c7c7;padding-top:15px;font-size:11px}.comprovante-rodape p{margin:8px 0}.comprovante-rodape strong{color:#b91c1c}.comprovante-rodape .comprovante-nota{font-size:9px;color:#666;margin-top:18px}
+@media(max-width:380px){.comprovante-pagina{padding:18px 12px}.comprovante-dados{gap:5px 8px;font-size:10px}.comprovante-titulo h2{font-size:16px}.comprovante-total{font-size:17px}}
 @media print{
   html:has(body.comprovante-mode),body.comprovante-mode{width:auto!important;height:auto!important;overflow:visible!important}
-  body.comprovante-mode #impressao{max-width:none!important}
-  body.comprovante-mode #printOS{width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important}
-  .comprovante-pagina{padding:8mm!important}.comprovante-titulo h2{font-size:24px}.comprovante-dados{grid-template-columns:max-content 1fr;gap:7px 18px;font-size:14px}.comprovante-dados dd{margin:0}
-  .comprovante-oficina,.comprovante-titulo,.comprovante-total,.comprovante-pagamento,.comprovante-rodape{break-inside:avoid}
+  body.comprovante-mode #impressao{width:100%!important;max-width:none!important}
+  body.comprovante-mode #printOS{width:105mm!important;max-width:105mm!important;max-height:none!important;overflow:visible!important;margin:0 auto!important;box-shadow:none!important}
+  .comprovante-pagina{padding:22px 18px!important;zoom:var(--comprovante-escala,1);break-inside:avoid;page-break-inside:avoid}
+  .comprovante-dados{grid-template-columns:max-content minmax(0,1fr);gap:6px 12px;font-size:11px}.comprovante-total{font-size:19px}.comprovante-titulo h2{font-size:18px}
   .comprovante-total,.comprovante-pago,.comprovante-itens th{print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
-
+/* Tela mantida durante o recarregamento e a recuperação da sessão. */
+.update-loading-overlay{display:none;position:fixed;inset:0;background:#0f1115;z-index:20000;align-items:center;justify-content:center;padding:24px}
+.update-loading-overlay.show,html.update-resuming .update-loading-overlay{display:flex}
+html.update-resuming #login{display:none!important}
+.update-loading-box{width:100%;max-width:390px;text-align:center;background:#171a21;border:1px solid #303746;border-radius:18px;padding:30px 24px}
+.update-loading-box h2{font-size:21px;margin:20px 0 12px}.update-loading-box p{font-size:14px;color:#cbd5e1;line-height:1.5}
+.update-loading-spinner{width:48px;height:48px;border:4px solid #374151;border-top-color:#e11d48;border-radius:50%;margin:auto;animation:motosos-loading .8s linear infinite}
+@keyframes motosos-loading{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.update-loading-spinner{animation-duration:2s}}
+@media print{.update-loading-overlay{display:none!important}}
 </style>
+<script>
+try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentElement.classList.add('update-resuming');}catch(e){}
+</script>
 </head>
 <body>
 <div id="publicOS" class="public-os-page" style="display:none"></div>
@@ -1275,7 +1287,7 @@ body.comprovante-mode .comprovante-itens th{background:#eee;font-weight:700}
     </section>
 
     <section id="impressao" class="section printable">
-      <div class="row no-print"><button id="printDocumentoBotao" onclick="window.print()">Imprimir O.S.</button><button id="printDocumentoVoltar" class="secondary" onclick="showSection('os')">Voltar</button></div>
+      <div class="row no-print"><button id="printDocumentoBotao" onclick="imprimirDocumentoMotoSOS()">Imprimir O.S.</button><button id="printDocumentoVoltar" class="secondary" onclick="showSection('os')">Voltar</button></div>
       <div id="printOS" class="print-os"></div>
     </section>
   </main>
@@ -2202,24 +2214,25 @@ function todayISO(){return dataLocalISO()}
 function brDate(iso){if(!iso)return'';let [y,m,d]=iso.split('-');return `${d}/${m}/${y}`}
 function audit(msg){db.audit.unshift({data:new Date().toLocaleString('pt-BR'),user:current?.user||'sistema',msg});save()}
 function clear(ids){ids.forEach(id=>{let e=document.getElementById(id);if(e)e.value=''})}
-async function login(){
+async function login(opcoes={}){
+  const avisar=m=>{if(!opcoes.restaurar)alert(m);return false;};
   let u=val('loginUser').trim(),p=val('loginPass').trim();
-  if(!u||!p)return alert('Informe usuário e senha.');
+  if(!u||!p)return avisar('Informe usuário e senha.');
 
   try{
     const usuario=await buscarLoginSupabase(u,p);
-    if(!usuario)return alert('Usuário ou senha inválidos.');
+    if(!usuario)return avisar('Usuário ou senha inválidos.');
 
     const oficina=await buscarOficinaSupabase(usuario.oficina_id);
-    if(!oficina)return alert('Oficina não encontrada. Fale com o suporte MotoSOS.');
+    if(!oficina)return avisar('Oficina não encontrada. Fale com o suporte MotoSOS.');
+    if(opcoes.oficinaId && String(usuario.oficina_id)!==String(opcoes.oficinaId))return avisar('Sessão da oficina inválida. Entre novamente.');
 
     const assinatura=await buscarAssinaturaSupabase(usuario.oficina_id);
     const statusOficina=String(oficina.status||'').trim();
     const statusAssinatura=String(assinatura?.status||'').trim();
 
     if(['Bloqueada','Cancelada'].includes(statusOficina) || statusAssinatura==='Cancelada'){
-      alert('Acesso bloqueado por pendência financeira ou assinatura cancelada. Regularize a mensalidade com o MotoSOS para acessar novamente.');
-      return;
+      return avisar('Acesso bloqueado por pendência financeira ou assinatura cancelada. Regularize a mensalidade com o MotoSOS para acessar novamente.');
     }
 
     currentOficinaId=usuario.oficina_id;
@@ -2258,18 +2271,25 @@ async function login(){
     document.getElementById('currentRole').innerText=current.role;
     buildNav();
     renderAll();
-    showSection(current.role==='Caixa'?'caixa':'dashboard');
+    await showSection(opcoes.secao || (current.role==='Caixa'?'caixa':'dashboard'));
+    if(opcoes.atualizacao){
+      localStorage.setItem('motosos_update_aplicada_id',String(Math.max(updateIdAplicadoMotoSOS(),Number(opcoes.atualizacao.id))));
+      localStorage.setItem('motosos_app_versao_atual',String(opcoes.atualizacao.versao||''));
+    }
     iniciarAvisosAdminMotoSOS();
     iniciarVerificacaoAtualizacoesMotoSOS();
     verificarAvisoAssinatura();
     if(precisaTrocarSenha(usuario)) abrirPrimeiroAcesso(usuario);
     save();
+    return true;
   }catch(e){
     console.error(e);
-    alert('Erro ao entrar. Verifique sua internet ou fale com o suporte MotoSOS.');
+    return avisar('Erro ao entrar. Verifique sua internet ou fale com o suporte MotoSOS.');
   }
 }
 function logout(){
+  sessionStorage.removeItem('motosos_sessao_atualizacao');
+  sessaoAtualizacaoPendenteMotoSOS=null;
   current=null;
   currentOficinaId=null;
   currentOficinaStatus='';
@@ -3910,6 +3930,70 @@ function iniciarAvisosAdminMotoSOS(){
 
 // ===== Atualizações obrigatórias vindas do Painel Admin =====
 let intervaloAtualizacoesMotoSOS = null;
+let sessaoAtualizacaoPendenteMotoSOS=null;
+let atualizacaoEmAndamentoMotoSOS=false;
+
+function mostrarCarregamentoAtualizacaoMotoSOS(mensagem='Carregando a nova versão…',erro=false){
+  const overlay=document.getElementById('updateLoadingOverlay');
+  if(overlay)overlay.classList.add('show');
+  const texto=document.getElementById('updateLoadingText');
+  if(texto)texto.innerText=mensagem;
+  const acoes=document.getElementById('updateLoadingActions');
+  if(acoes)acoes.style.display=erro?'flex':'none';
+  const spinner=document.getElementById('updateLoadingSpinner');
+  if(spinner)spinner.style.display=erro?'none':'block';
+  document.documentElement.classList.add('update-open');
+  document.body.classList.add('update-open');
+}
+
+function ocultarCarregamentoAtualizacaoMotoSOS(){
+  document.getElementById('updateLoadingOverlay')?.classList.remove('show');
+  document.getElementById('updateOverlay')?.classList.remove('show');
+  document.documentElement.classList.remove('update-open');
+  document.documentElement.classList.remove('update-resuming');
+  document.body.classList.remove('update-open');
+}
+
+async function restaurarSessaoAtualizacaoMotoSOS(){
+  if(atualizacaoEmAndamentoMotoSOS)return true;
+  let sessao=sessaoAtualizacaoPendenteMotoSOS;
+  if(!sessao){
+    try{sessao=JSON.parse(sessionStorage.getItem('motosos_sessao_atualizacao')||'null');}
+    catch(e){sessionStorage.removeItem('motosos_sessao_atualizacao');return false;}
+    // As credenciais são temporárias e consumidas somente nesta navegação.
+    sessionStorage.removeItem('motosos_sessao_atualizacao');
+    const url=new URL(window.location.href);
+    if(!sessao || !sessao.user || !sessao.pass || !sessao.oficinaId ||
+       String(sessao.updateId)!==url.searchParams.get('update_id') ||
+       sessao.caminho!==url.pathname || !Number.isFinite(sessao.criadoEm) ||
+       Date.now()-sessao.criadoEm>10*60*1000 || sessao.criadoEm>Date.now())return false;
+    sessaoAtualizacaoPendenteMotoSOS=sessao;
+  }
+  atualizacaoEmAndamentoMotoSOS=true;
+  mostrarCarregamentoAtualizacaoMotoSOS('Atualizando e carregando seus dados…');
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginUser').value=sessao.user;
+  document.getElementById('loginPass').value=sessao.pass;
+  try{
+    const entrou=await login({restaurar:true,oficinaId:sessao.oficinaId,secao:sessao.secao,atualizacao:{id:sessao.updateId,versao:sessao.versao}});
+    if(!entrou)throw new Error('Não foi possível recuperar o acesso.');
+    sessaoAtualizacaoPendenteMotoSOS=null;
+    window.motososUpdateAtual=null;
+    document.getElementById('loginPass').value='';
+    ocultarCarregamentoAtualizacaoMotoSOS();
+  }catch(e){
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='none';
+    mostrarCarregamentoAtualizacaoMotoSOS('Não foi possível concluir a atualização. Confira sua conexão e tente novamente.',true);
+  }finally{atualizacaoEmAndamentoMotoSOS=false;}
+  return true;
+}
+
+function voltarAoLoginAtualizacaoMotoSOS(){
+  ocultarCarregamentoAtualizacaoMotoSOS();
+  logout();
+}
 
 function updateIdAplicadoMotoSOS(){
   return Number(localStorage.getItem('motosos_update_aplicada_id') || 0);
@@ -3962,10 +4046,10 @@ async function buscarAtualizacaoMaisRecenteMotoSOS(){
 }
 
 async function verificarAtualizacaoMotoSOS(){
-  if(!currentOficinaId)return;
+  if(!currentOficinaId || atualizacaoEmAndamentoMotoSOS)return;
 
   const nova = await buscarAtualizacaoMaisRecenteMotoSOS();
-  if(!nova)return;
+  if(!nova || atualizacaoEmAndamentoMotoSOS)return;
 
   const status = normalizarStatusAtualizacao(nova.status);
   const statusValido = ['liberada','obrigatoria'].includes(status);
@@ -4035,20 +4119,34 @@ function fecharAtualizacaoMotoSOS(){
   document.body.classList.remove('update-open');
 }
 
-function confirmarAtualizacaoMotoSOS(){
+async function confirmarAtualizacaoMotoSOS(){
   const nova = window.motososUpdateAtual;
-  if(!nova || !nova.id)return;
-
-  // Marca esta publicação como aplicada e força novo carregamento sem cache.
-  localStorage.setItem('motosos_update_aplicada_id', String(nova.id));
-  localStorage.setItem('motosos_app_versao_atual', String(nova.versao || ''));
+  if(!nova || !nova.id || atualizacaoEmAndamentoMotoSOS)return;
+  if(!current || !currentOficinaId)return;
 
   const url = new URL(window.location.href);
   url.searchParams.set('versao', String(nova.versao || nova.id));
   url.searchParams.set('update_id', String(nova.id));
   url.searchParams.set('_atualizado', String(Date.now()));
 
-  window.location.replace(url.toString());
+  try{
+    localStorage.setItem(storageKey(),JSON.stringify(db));
+    sessionStorage.setItem('motosos_sessao_atualizacao',JSON.stringify({
+      user:current.user,pass:current.pass,oficinaId:currentOficinaId,
+      secao:document.querySelector('.section.active')?.id||'dashboard',
+      updateId:nova.id,versao:nova.versao||'',caminho:url.pathname,criadoEm:Date.now()
+    }));
+    atualizacaoEmAndamentoMotoSOS=true;
+    mostrarCarregamentoAtualizacaoMotoSOS();
+    // Permite pintar a tela de carregamento antes de trocar o arquivo.
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    window.location.replace(url.toString());
+  }catch(e){
+    atualizacaoEmAndamentoMotoSOS=false;
+    sessionStorage.removeItem('motosos_sessao_atualizacao');
+    ocultarCarregamentoAtualizacaoMotoSOS();
+    alert('Não foi possível iniciar a atualização. Tente novamente.');
+  }
 }
 
 function iniciarVerificacaoAtualizacoesMotoSOS(){
@@ -4314,6 +4412,24 @@ function qrUrl(data,size=120){
 function fakeBarcode(text){
   return String(text||'OS').replace(/./g,(ch,i)=> i%3===0?'█':(i%3===1?'▌':'▐')).repeat(3).slice(0,34);
 }
+function ajustarComprovanteParaPDFMotoSOS(){
+  if(!document.body.classList.contains('comprovante-mode'))return;
+  const pagina=document.querySelector('.comprovante-pagina');
+  if(!pagina)return;
+  pagina.style.setProperty('--comprovante-escala','1');
+  // Reserva espaço nas margens e reduz proporcionalmente recibos mais longos.
+  const alturaMaxima=265*96/25.4;
+  const escala=Math.min(1,alturaMaxima/Math.max(1,pagina.scrollHeight));
+  pagina.style.setProperty('--comprovante-escala',String(escala));
+}
+
+function imprimirDocumentoMotoSOS(){
+  ajustarComprovanteParaPDFMotoSOS();
+  window.print();
+}
+
+window.addEventListener('beforeprint',ajustarComprovanteParaPDFMotoSOS);
+
 function openPrintComprovanteVenda(id,voltar='caixa'){
   const v=(db.vendas||[]).find(x=>String(x.id)===String(id));
   if(!v)return alert('Venda não encontrada.');
@@ -4348,6 +4464,7 @@ function openPrintComprovanteVenda(id,voltar='caixa'){
         <dt>Venda nº:</dt><dd>${escapeHtml(v.numero||v.id)}</dd>
         <dt>Data do pagamento:</dt><dd>${escapeHtml(dataTexto)}</dd>
         <dt>Cliente:</dt><dd>${escapeHtml(c.nome||'Cliente não identificado')}</dd>
+        <dt>Oficina:</dt><dd>${escapeHtml(e.nome||'Nome da oficina')}</dd>
       </dl>
       <table class="comprovante-itens">
         <thead><tr><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
@@ -4797,9 +4914,13 @@ async function abrirConsultaPublicaOS(){
   }
 }
 
+window.addEventListener('DOMContentLoaded',async()=>{
 load();
-abrirConsultaPublicaOS().then(publicMode=>{ if(publicMode) return;
-// Sempre iniciar na tela de login. O acesso só abre depois de validar no Supabase.
+const publicMode=await abrirConsultaPublicaOS();
+if(publicMode){sessionStorage.removeItem('motosos_sessao_atualizacao');document.documentElement.classList.remove('update-resuming');return;}
+if(await restaurarSessaoAtualizacaoMotoSOS())return;
+document.documentElement.classList.remove('update-resuming');
+// Fora da troca de versão, o acesso continua iniciando pelo login.
 document.getElementById('login').style.display='flex';
 document.getElementById('app').style.display='none';
 });
@@ -4908,6 +5029,18 @@ renderAll = function(){
 };
 
 </script>
+
+<div id="updateLoadingOverlay" class="update-loading-overlay" role="dialog" aria-modal="true" aria-labelledby="updateLoadingTitle">
+  <div class="update-loading-box">
+    <div id="updateLoadingSpinner" class="update-loading-spinner" aria-hidden="true"></div>
+    <h2 id="updateLoadingTitle">Atualizando o aplicativo</h2>
+    <p id="updateLoadingText" role="status" aria-live="polite">Carregando a nova versão…</p>
+    <div id="updateLoadingActions" class="row" style="display:none">
+      <button class="green" onclick="restaurarSessaoAtualizacaoMotoSOS()">Tentar novamente</button>
+      <button class="secondary" onclick="voltarAoLoginAtualizacaoMotoSOS()">Entrar novamente</button>
+    </div>
+  </div>
+</div>
 
 <div id="updateOverlay" class="update-overlay">
   <div class="update-box">
