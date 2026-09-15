@@ -4361,7 +4361,7 @@ function renderAll(){
  let estoqueDisponivel=db.estoque.filter(p=>Number(p.qtd)>0).map(p=>[p.id,`${p.codigo} - ${p.produto} | ${money(p.venda)} | Est: ${p.qtd}`]);fillSelect('vendaProduto',estoqueDisponivel);fillSelect('osPecaSelect',estoqueDisponivel);fillSelect('osMecanico',db.funcionarios.filter(f=>String(f.status||'Ativo')==='Ativo' && String(f.cargo||'').toLowerCase().includes('mecânico')).map(f=>[f.id,`${f.nome} (${f.comissao}% comissão)`]));
  table('clientesTable',['Nome','Telefone','CPF/CNPJ','Cidade','Ações'],db.clientes.map(c=>[c.nome,c.telefone,c.doc||'-',c.cidade||'-',htmlMotoSOS`<button class="small blue" onclick="editCliente(${c.id})">Editar</button> <button class=\"small secondary\" onclick=\"abrirHistoricoCliente(${c.id})\">Histórico</button> <button class="small secondary" onclick="abrirHistoricoCliente(${c.id})">Histórico</button> <button class="small secondary" onclick="deleteCliente(${c.id})">Excluir</button>`]));
  table('motosTable',['Placa','Marca','Modelo','Cor','Ano','Cliente','Ações'],db.motos.map(m=>[m.placa,m.marca,m.modelo,m.cor,m.ano,clienteName(m.clienteId),htmlMotoSOS`<button class="small secondary" onclick="deleteMoto(${m.id})">Excluir</button>`]));
- table('osTable',['Nº','Data','Cliente','Moto','Vendedor','Total','Status','Ações'],db.os.map(o=>[o.numero,brDate(o.data),clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money(osTotal(o)),htmlMotoSOS`<span class="badge yellow">${normalizarStatusOSValor(o.status)}</span>`,htmlMotoSOS`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button> <button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`]));
+ table('osTable',['Nº','Data','Cliente','Moto','Vendedor','Total','Status','Ações'],db.os.map(o=>[o.numero,brDate(o.data),clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money(osTotal(o)),htmlMotoSOS`<span class="badge yellow">${normalizarStatusOSValor(o.status)}</span>`,acoesOSMotoSOS(o)]));
  let aguardando=db.os.filter(o=>o.status==='Aguardando aprovação');
  table('orcamentosTable',['O.S.','Cliente','Moto','Vendedor','Peças','Mão de obra','Total','Ações'],aguardando.map(o=>[o.numero,clienteName(o.clienteId),motoName(o.motoId),func(o.vendedorId).nome||'-',money((o.pecas||[]).reduce((s,p)=>s+p.total,0)),money((o.mao||[]).reduce((s,m)=>s+m.valor,0)),money(osTotal(o)),htmlMotoSOS`<button class="small blue" onclick="startEditOS(${o.id});showSection('os')">Editar O.S.</button>`]));
  table('vendasTable',['Nº','Data','Cliente','Vendedor','Produto','Qtd','Total','Pagamento','Status','Caixa/NF'],db.vendas.map(v=>[
@@ -4490,6 +4490,7 @@ function iniciarPagamentoCaixa(id){
 function iniciarPagamentoOS(id){
   const o=db.os.find(x=>String(x.id)===String(id));
   if(!o)return alert('O.S. não encontrada.');
+  if(recebimentoOSMotoSOS(o.id))return openPrintComprovanteOS(o.id,'caixa');
   if(!statusOSProntoCaixa(o.status))return alert('A O.S. só pode aparecer e ser recebida no caixa quando estiver com status "Pronto pra retirada".');
   const total=osTotal(o);
   if(total<=0)return alert('Esta O.S. não possui valor de peças ou mão de obra. Edite a O.S. e lance os itens antes de receber.');
@@ -4540,7 +4541,7 @@ async function finalizarVendaNoCaixa(){
       await carregarCaixaSupabase();
       cancelarPagamentoCaixa();
       renderAll();
-      alert('Pagamento da O.S. confirmado no caixa. Use os botões NF-e, NFC-e ou NFS-e para registrar a nota.');
+      openPrintComprovanteOS(id,'caixa');
     }catch(e){console.error(e);alert('Erro ao finalizar pagamento da O.S. Verifique se ela já não foi recebida.');}
     return;
   }
@@ -4612,26 +4613,67 @@ function imprimirDocumentoMotoSOS(){
 
 window.addEventListener('beforeprint',ajustarComprovanteParaPDFMotoSOS);
 
+function recebimentoOSMotoSOS(id){
+  return (db.financeiroOficina||[]).find(f=>
+    String(f.origem||'').trim().toLowerCase()==='os' && String(f.origemId)===String(id) &&
+    String(f.tipo||'').trim().toLowerCase()==='entrada' &&
+    String(f.status||'').trim().toLowerCase()==='recebido' &&
+    (!f.oficinaId || String(f.oficinaId)===String(currentOficinaId))
+  )||null;
+}
+
+function acoesOSMotoSOS(o){
+  const botoes=[htmlMotoSOS`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button>`];
+  if(recebimentoOSMotoSOS(o.id))botoes.push(htmlMotoSOS`<button class="small blue" onclick="openPrintComprovanteOS(${o.id},'os')">Comprovante</button>`);
+  botoes.push(htmlMotoSOS`<button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`);
+  return new HtmlMotoSOS(botoes.map(String).join(' '));
+}
+
+function openPrintComprovanteOS(id,voltar='os'){
+  const o=(db.os||[]).find(x=>String(x.id)===String(id));
+  if(!o)return alert('O.S. não encontrada.');
+  const recebimento=recebimentoOSMotoSOS(id);
+  if(!recebimento)return alert('Confirme o pagamento da O.S. no caixa antes de emitir o comprovante.');
+  const itens=[
+    ...(o.pecas||[]).map(p=>{
+      const qtd=Number(p.qtd||p.quantidade||0),total=Number(p.total||0);
+      return {descricao:p.nome||p.descricao||'Peça',qtd,unit:qtd>0?total/qtd:Number(p.unit||0),total};
+    }),
+    ...(o.mao||[]).map(m=>({descricao:m.desc||m.descricao||'Mão de obra',qtd:1,unit:Number(m.valor||0),total:Number(m.valor||0)}))
+  ];
+  const total=Number(recebimento.valor||0);
+  if(!itens.length)itens.push({descricao:'Serviços da O.S. '+(o.numero||o.id),qtd:1,unit:total,total});
+  mostrarComprovantePagamentoMotoSOS({tipo:'O.S.',numero:o.numero||o.id,clienteId:o.clienteId,
+    motoTexto:motoName(o.motoId),dataPagamento:recebimento.criado_em||'',
+    formaPagamento:recebimento.formaPagamento,total,subtotal:total,desconto:0,itens,voltar});
+}
+
 function openPrintComprovanteVenda(id,voltar='caixa'){
   const v=(db.vendas||[]).find(x=>String(x.id)===String(id));
   if(!v)return alert('Venda não encontrada.');
   if(v.status!=='Finalizada')return alert('Confirme o pagamento no caixa antes de emitir o comprovante.');
-  const e=db.empresa||{},c=cliente(v.clienteId);
   const recebimento=(db.financeiroOficina||[]).find(f=>
     String(f.origem||'').toLowerCase()==='venda' && String(f.origemId)===String(v.id) &&
     String(f.status||'').toLowerCase()==='recebido'
   );
-  const dataPagamento=recebimento?.criado_em||v.pagamentoData||'';
+  const total=Number(v.total||0),qtd=Number(v.qtd||0),unit=Number(v.unit||0);
+  const subtotal=Math.max(total,qtd*unit),desconto=Math.max(0,subtotal-total);
+  mostrarComprovantePagamentoMotoSOS({tipo:'Venda',numero:v.numero||v.id,clienteId:v.clienteId,
+    dataPagamento:recebimento?.criado_em||v.pagamentoData||'',
+    formaPagamento:recebimento?.formaPagamento||v.formaPagamento,total,subtotal,desconto,
+    itens:[{descricao:v.produto||'Produto',qtd,unit,total}],voltar});
+}
+
+function mostrarComprovantePagamentoMotoSOS({tipo,numero,clienteId,motoTexto='',dataPagamento,formaPagamento,total,subtotal,desconto,itens,voltar}){
+  const e=db.empresa||{},c=cliente(clienteId);
   const d=dataPagamento?new Date(dataPagamento):null;
   const dataTexto=d&&!Number.isNaN(d.getTime())?new Intl.DateTimeFormat('pt-BR',{
     timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'
   }).format(d)+(horaLocal(dataPagamento)!=='-'?' às '+horaLocal(dataPagamento):''):'Não informada';
-  const total=Number(v.total||0),qtd=Number(v.qtd||0),unit=Number(v.unit||0);
-  const subtotal=Math.max(total,qtd*unit),desconto=Math.max(0,subtotal-total);
   const logo=logoSeguraMotoSOS(e.logo)?`<img src="${escapeHtml(logoSeguraMotoSOS(e.logo))}" alt="Logo da oficina">`:'';
   document.body.classList.add('comprovante-mode');
   document.getElementById('printDocumentoBotao').innerText='Imprimir / Salvar PDF';
-  document.getElementById('printDocumentoVoltar').onclick=()=>showSection(voltar==='vendas'?'vendas':'caixa');
+  document.getElementById('printDocumentoVoltar').onclick=()=>showSection(['vendas','os','caixa'].includes(voltar)?voltar:'caixa');
   document.getElementById('printOS').innerHTML=`
     <article class="comprovante-pagina">
       <header class="comprovante-oficina">
@@ -4643,19 +4685,20 @@ function openPrintComprovanteVenda(id,voltar='caixa'){
       </header>
       <div class="comprovante-titulo"><h2>COMPROVANTE DE PAGAMENTO</h2><span class="comprovante-pago">✓ PAGO</span></div>
       <dl class="comprovante-dados">
-        <dt>Venda nº:</dt><dd>${escapeHtml(v.numero||v.id)}</dd>
+        <dt>${escapeHtml(tipo)} nº:</dt><dd>${escapeHtml(numero)}</dd>
         <dt>Data do pagamento:</dt><dd>${escapeHtml(dataTexto)}</dd>
         <dt>Cliente:</dt><dd>${escapeHtml(c.nome||'Cliente não identificado')}</dd>
+        ${motoTexto?`<dt>Moto:</dt><dd>${escapeHtml(motoTexto)}</dd>`:''}
         <dt>Oficina:</dt><dd>${escapeHtml(e.nome||'Nome da oficina')}</dd>
       </dl>
       <table class="comprovante-itens">
         <thead><tr><th>Descrição</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead>
-        <tbody><tr><td>${escapeHtml(v.produto||'Produto')}</td><td>${qtd}</td><td>${money(unit)}</td><td>${money(total)}</td></tr></tbody>
+        <tbody>${itens.map(item=>`<tr><td>${escapeHtml(item.descricao)}</td><td>${Number(item.qtd||0)}</td><td>${money(item.unit)}</td><td>${money(item.total)}</td></tr>`).join('')}</tbody>
       </table>
       <div class="comprovante-resumo"><p><span>Subtotal:</span><b>${money(subtotal)}</b></p><p><span>Desconto:</span><b>${money(desconto)}</b></p></div>
       <div class="comprovante-total"><strong>TOTAL PAGO</strong><strong>${money(total)}</strong></div>
       <dl class="comprovante-dados comprovante-pagamento">
-        <dt>Forma de pagamento:</dt><dd>${escapeHtml(recebimento?.formaPagamento||v.formaPagamento||'Não informada')}</dd>
+        <dt>Forma de pagamento:</dt><dd>${escapeHtml(formaPagamento||'Não informada')}</dd>
         <dt>Valor recebido:</dt><dd>${money(total)}</dd>
         <dt>Saldo pendente:</dt><dd>${money(0)}</dd>
       </dl>
@@ -5058,7 +5101,7 @@ renderAll=function(){
   _renderAllV11();
   inserirCamposOSV11();normalizarStatusOS();preencherSelectMecanicosV11();
   table('osTable',['Nº','Entrada','Prevista','Cliente','Moto','Mecânico','Total','Status','Ações'],(db.os||[]).map(o=>[
-    o.numero,brDate(o.dataEntrada||o.data),brDate(o.dataPrevista),clienteName(o.clienteId),motoName(o.motoId),func(o.mecanicoId).nome||'-',money(osTotal(o)),htmlMotoSOS`<span class="badge yellow">${normalizarStatusOSValor(o.status)}</span>`,htmlMotoSOS`<button class="small blue" onclick="startEditOS(${o.id})">Editar</button> <button class="small" onclick="openPrintOS(${o.id})">Imprimir</button> <button class="small secondary" onclick="deleteOS(${o.id})">Excluir</button>`
+    o.numero,brDate(o.dataEntrada||o.data),brDate(o.dataPrevista),clienteName(o.clienteId),motoName(o.motoId),func(o.mecanicoId).nome||'-',money(osTotal(o)),htmlMotoSOS`<span class="badge yellow">${normalizarStatusOSValor(o.status)}</span>`,acoesOSMotoSOS(o)
   ]));
   table('funcTable',['Nome','CPF','Telefone','Cargo','Salário','Comissão %','Admissão','Status','O.S.','Produção','Comissão acum.','Ações'],(db.funcionarios||[]).map(f=>[
     f.nome,f.cpf||'-',f.telefone||'-',f.cargo||'-',money(f.salario||0),(f.comissao||0)+'%',f.dataAdmissao?brDate(f.dataAdmissao):'-',f.status||'Ativo',f.totalOs||0,money(f.totalProduzido||0),money(f.totalComissao||0),htmlMotoSOS`<button class="small blue" onclick="editFunc(${f.id})">Editar</button> <button class="small secondary" onclick="deleteFunc(${f.id})">Excluir</button>`
