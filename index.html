@@ -1289,7 +1289,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
     </section>
 
     <section id="impressao" class="section printable">
-      <div class="row no-print"><button id="printDocumentoBotao" onclick="imprimirDocumentoMotoSOS()">Imprimir O.S.</button><button id="printDocumentoImprimir" style="display:none" onclick="imprimirPaginaMotoSOS()">Imprimir</button><a id="printDocumentoPDFLink" class="secondary" style="display:none" target="_blank" rel="noopener noreferrer">Abrir PDF</a><button id="printDocumentoVoltar" class="secondary" onclick="showSection('os')">Voltar</button></div>
+      <div class="row no-print"><button id="printDocumentoBotao" onclick="imprimirDocumentoMotoSOS()">Salvar PDF</button><button id="printDocumentoImprimir" style="display:none" onclick="imprimirPaginaMotoSOS()">Imprimir</button><a id="printDocumentoPDFLink" class="secondary" style="display:none" target="_blank" rel="noopener noreferrer">Abrir PDF</a><button id="printDocumentoVoltar" class="secondary" onclick="showSection('os')">Voltar</button></div>
       <div id="printOS" class="print-os"></div>
     </section>
   </main>
@@ -5017,56 +5017,150 @@ function imprimirPaginaMotoSOS(){
 }
 
 async function imprimirDocumentoMotoSOS(){
-  if(!document.body.classList.contains('comprovante-mode'))return imprimirPaginaMotoSOS();
   if(gerandoPDFMotoSOS)return;
-  const pagina=document.querySelector('.comprovante-pagina');
-  if(!pagina)return alert('Abra um comprovante antes de salvar o PDF.');
+
+  const comprovante=document.body.classList.contains('comprovante-mode');
+  const pagina=comprovante
+    ? document.querySelector('.comprovante-pagina')
+    : document.querySelector('#printOS .os-print-page-compact, #printOS .os-print-page');
+  if(!pagina)return alert(comprovante?'Abra um comprovante antes de salvar o PDF.':'Abra uma O.S. antes de salvar o PDF.');
+
   const botao=document.getElementById('printDocumentoBotao');
   gerandoPDFMotoSOS=true;
-  botao.disabled=true;botao.innerText='Gerando PDF…';
+  if(botao){botao.disabled=true;botao.innerText='Gerando PDF…';}
+
   try{
-    if(typeof window.html2canvas!=='function'||!window.jspdf?.jsPDF)throw new Error('Gerador indisponível');
+    if(typeof window.html2canvas!=='function'||!window.jspdf?.jsPDF)throw new Error('Gerador de PDF indisponível');
     if(document.fonts?.ready)await document.fonts.ready;
-    // Renderiza somente o comprovante, em largura fixa, inclusive em telas pequenas.
-    const canvas=await window.html2canvas(pagina,{
-      scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false,imageTimeout:10000,
-      windowWidth:1024,windowHeight:Math.max(1200,pagina.scrollHeight),
-      onclone:doc=>{
+
+    // Garante que imagens (logo/QR) tenham tempo para carregar antes da captura.
+    const imagens=Array.from(pagina.querySelectorAll('img'));
+    await Promise.all(imagens.map(img=>{
+      if(img.complete)return Promise.resolve();
+      return new Promise(resolve=>{
+        const fim=()=>resolve();
+        img.addEventListener('load',fim,{once:true});
+        img.addEventListener('error',fim,{once:true});
+        setTimeout(fim,2500);
+      });
+    }));
+
+    const opcoes={
+      scale:2,
+      backgroundColor:'#ffffff',
+      useCORS:true,
+      allowTaint:false,
+      logging:false,
+      imageTimeout:10000,
+      windowWidth:1200,
+      windowHeight:Math.max(1400,pagina.scrollHeight+80),
+      scrollX:0,
+      scrollY:-window.scrollY
+    };
+
+    if(comprovante){
+      opcoes.onclone=doc=>{
         const recibo=doc.querySelector('.comprovante-pagina');
         const caixa=doc.getElementById('printOS');
-        caixa.style.setProperty('width','105mm','important');
-        caixa.style.setProperty('max-width','105mm','important');
-        caixa.style.setProperty('margin','0','important');
-        recibo.style.setProperty('--comprovante-escala','1');
-        recibo.style.zoom='1';
-        // html2canvas não suporta CSS Grid; conserva as duas colunas do recibo.
-        recibo.querySelectorAll('dl').forEach(dl=>{
-          dl.style.display='block';
-          Array.from(dl.children).forEach(item=>{
-            if(item.tagName==='DT'){item.style.cssText='float:left;clear:left;width:145px;font-weight:700;margin-bottom:6px;';}
-            else{item.style.cssText='margin:0 0 6px 157px;min-height:16px;';}
+        if(caixa){
+          caixa.style.setProperty('width','105mm','important');
+          caixa.style.setProperty('max-width','105mm','important');
+          caixa.style.setProperty('margin','0','important');
+        }
+        if(recibo){
+          recibo.style.setProperty('--comprovante-escala','1');
+          recibo.style.zoom='1';
+          // html2canvas pode variar no suporte a grid; fixa o DL em duas colunas visuais.
+          recibo.querySelectorAll('dl').forEach(dl=>{
+            dl.style.display='block';
+            Array.from(dl.children).forEach(item=>{
+              if(item.tagName==='DT')item.style.cssText='float:left;clear:left;width:145px;font-weight:700;margin-bottom:6px;';
+              else item.style.cssText='margin:0 0 6px 157px;min-height:16px;';
+            });
           });
-        });
-      }
-    });
-    if(!canvas.width||!canvas.height)throw new Error('Comprovante vazio');
+        }
+      };
+    }else{
+      opcoes.onclone=doc=>{
+        const caixa=doc.getElementById('printOS');
+        const os=doc.querySelector('#printOS .os-print-page-compact, #printOS .os-print-page');
+        if(caixa){
+          caixa.style.setProperty('width','198mm','important');
+          caixa.style.setProperty('max-width','198mm','important');
+          caixa.style.setProperty('min-height','0','important');
+          caixa.style.setProperty('margin','0','important');
+          caixa.style.setProperty('padding','0','important');
+          caixa.style.setProperty('overflow','visible','important');
+        }
+        if(os){
+          os.style.setProperty('width','198mm','important');
+          os.style.setProperty('max-width','198mm','important');
+          os.style.setProperty('min-height','0','important');
+          os.style.setProperty('max-height','none','important');
+          os.style.setProperty('margin','0','important');
+          os.style.setProperty('overflow','visible','important');
+        }
+      };
+    }
+
+    const canvas=await window.html2canvas(pagina,opcoes);
+    if(!canvas.width||!canvas.height)throw new Error('Documento vazio');
+
     const pdf=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
-    const largura=Math.min(105,277*canvas.width/canvas.height),altura=largura*canvas.height/canvas.width;
-    pdf.addImage(canvas.toDataURL('image/jpeg',0.98),'JPEG',(210-largura)/2,10,largura,altura);
-    const numero=pagina.querySelector('dd')?.textContent||'pagamento';
-    const nome='comprovante-'+numero.replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf';
+    let largura,altura,x,y;
+    if(comprovante){
+      largura=Math.min(105,277*canvas.width/canvas.height);
+      altura=largura*canvas.height/canvas.width;
+      x=(210-largura)/2;
+      y=10;
+    }else{
+      // Área útil A4: 198 x 285 mm (margens de 6 mm).
+      const maxW=198,maxH=285;
+      const escala=Math.min(maxW/canvas.width,maxH/canvas.height);
+      largura=canvas.width*escala;
+      altura=canvas.height*escala;
+      x=(210-largura)/2;
+      y=(297-altura)/2;
+    }
+
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',x,y,largura,altura,undefined,'FAST');
+
+    let numero='documento';
+    let nome='documento.pdf';
+    if(comprovante){
+      numero=pagina.querySelector('dd')?.textContent||'pagamento';
+      nome='comprovante-'+String(numero).replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf';
+    }else{
+      numero=pagina.querySelector('.compact-os-box b,.os-print-number-body b')?.textContent||'OS';
+      const seguro=String(numero).trim().replace(/[^a-zA-Z0-9_-]/g,'')||'OS';
+      nome='OS-'+seguro.replace(/^OS-?/i,'')+'.pdf';
+    }
+
     const blob=pdf.output('blob');
     if(urlPDFMotoSOS)URL.revokeObjectURL(urlPDFMotoSOS);
     urlPDFMotoSOS=URL.createObjectURL(blob);
+
     const link=document.getElementById('printDocumentoPDFLink');
-    link.href=urlPDFMotoSOS;link.style.display='inline-block';
+    if(link){
+      link.href=urlPDFMotoSOS;
+      link.download=nome;
+      link.innerText='Abrir PDF';
+      link.style.display='inline-block';
+    }
+
     const baixar=document.createElement('a');
-    baixar.href=urlPDFMotoSOS;baixar.download=nome;document.body.appendChild(baixar);baixar.click();baixar.remove();
+    baixar.href=urlPDFMotoSOS;
+    baixar.download=nome;
+    baixar.style.display='none';
+    document.body.appendChild(baixar);
+    baixar.click();
+    baixar.remove();
   }catch(e){
-    console.error('Falha ao gerar comprovante PDF:',e);
-    alert('Não foi possível gerar o PDF. Tente novamente ou use Imprimir.');
+    console.error('Falha ao gerar PDF MotoSOS:',e);
+    alert('Não foi possível gerar o PDF. Use o botão Imprimir como alternativa e verifique o Console se o erro continuar.');
   }finally{
-    gerandoPDFMotoSOS=false;botao.disabled=false;botao.innerText='Salvar PDF';
+    gerandoPDFMotoSOS=false;
+    if(botao){botao.disabled=false;botao.innerText='Salvar PDF';}
   }
 }
 
@@ -5173,8 +5267,8 @@ function openPrintOS(id){
   let o=db.os.find(x=>String(x.id)===String(id));
   if(!o)return alert('O.S. não encontrada.');
   document.body.classList.remove('comprovante-mode');
-  document.getElementById('printDocumentoBotao').innerText='Imprimir O.S.';
-  document.getElementById('printDocumentoImprimir').style.display='none';
+  document.getElementById('printDocumentoBotao').innerText='Salvar PDF';
+  document.getElementById('printDocumentoImprimir').style.display='';
   document.getElementById('printDocumentoPDFLink').style.display='none';
   document.getElementById('printDocumentoVoltar').onclick=()=>showSection('os');
   let c=cliente(o.clienteId),m=moto(o.motoId),e=db.empresa||{};
