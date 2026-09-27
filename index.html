@@ -1240,6 +1240,12 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
         <table id="caixaPendentesTable"></table>
       </div>
 
+      <div class="card caixa-card">
+        <h2>Comprovantes pagos</h2>
+        <p class="muted">Abra o comprovante de uma venda ou O.S. recebida para baixar ou compartilhar o PDF.</p>
+        <table id="caixaComprovantesPagosTable"></table>
+      </div>
+
       <div id="caixaPagamentoBox" class="card caixa-card" style="display:none">
         <h2>Receber no caixa</h2>
         <input type="hidden" id="caixaPagamentoTipo">
@@ -1289,7 +1295,8 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
     </section>
 
     <section id="impressao" class="section printable">
-      <div class="row no-print"><button id="printDocumentoBotao" onclick="imprimirDocumentoMotoSOS()">Salvar PDF</button><button id="printDocumentoImprimir" style="display:none" onclick="imprimirPaginaMotoSOS()">Imprimir</button><a id="printDocumentoPDFLink" class="secondary" style="display:none" target="_blank" rel="noopener noreferrer">Abrir PDF</a><button id="printDocumentoVoltar" class="secondary" onclick="showSection('os')">Voltar</button></div>
+      <div class="row no-print"><button id="printDocumentoBotao" onclick="imprimirDocumentoMotoSOS()">Salvar PDF</button><button id="printDocumentoCompartilhar" class="secondary" style="display:none" onclick="compartilharPDFMotoSOS()">Compartilhar / salvar no Android</button><button id="printDocumentoImprimir" onclick="imprimirPaginaMotoSOS()">Imprimir</button><a id="printDocumentoPDFLink" class="secondary" style="display:none" target="_blank" rel="noopener noreferrer">Abrir PDF</a><button id="printDocumentoVoltar" class="secondary" onclick="showSection('os')">Voltar</button></div>
+      <p id="printPDFAjudaAndroid" class="hint no-print" style="display:none">No Android, gere o PDF e toque em <b>Compartilhar / salvar no Android</b> para escolher onde salvar. Se o aplicativo não oferecer essa opção, abra o sistema no Chrome.</p>
       <div id="printOS" class="print-os"></div>
     </section>
   </main>
@@ -4865,6 +4872,22 @@ function renderAll(){
    ])
  ];
  table('caixaPendentesTable',['Tipo','Nº','Data','Cliente','Descrição','Total','Status','Ação'],linhasCaixaPendentes);
+ const comprovantesPagos=[
+   ...(db.vendas||[]).filter(v=>v.status==='Finalizada').map(v=>({
+     tipo:'Venda',id:v.id,numero:v.numero||v.id,data:v.pagamentoData||v.data,
+     clienteId:v.clienteId,total:v.total
+   })),
+   ...(db.os||[]).filter(o=>recebimentoOSMotoSOS(o.id)).map(o=>{
+     const r=recebimentoOSMotoSOS(o.id);
+     return {tipo:'O.S.',id:o.id,numero:o.numero||o.id,data:r.criado_em||o.data,
+       clienteId:o.clienteId,total:r.valor};
+   })
+ ].sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
+ table('caixaComprovantesPagosTable',['Tipo','Nº','Cliente','Valor pago','Ação'],comprovantesPagos.map(p=>[
+   p.tipo,p.numero,clienteName(p.clienteId),money(p.total),
+   p.tipo==='Venda'?htmlMotoSOS`<button class="small blue" onclick="openPrintComprovanteVenda(${p.id},'caixa')">Baixar comprovante</button>`:
+     htmlMotoSOS`<button class="small blue" onclick="openPrintComprovanteOS(${p.id},'caixa')">Baixar comprovante</button>`
+ ]));
  renderRelatorios();
  renderCaixa();
  renderFechamentoCaixa();
@@ -5006,6 +5029,36 @@ function ajustarComprovanteParaPDFMotoSOS(){
 
 let gerandoPDFMotoSOS=false;
 let urlPDFMotoSOS='';
+let arquivoPDFMotoSOS=null;
+let nomePDFMotoSOS='';
+let chavePDFMotoSOS='';
+
+function limparPDFMotoSOS(){
+  if(urlPDFMotoSOS)URL.revokeObjectURL(urlPDFMotoSOS);
+  urlPDFMotoSOS='';arquivoPDFMotoSOS=null;nomePDFMotoSOS='';chavePDFMotoSOS='';
+  const link=document.getElementById('printDocumentoPDFLink');
+  link.removeAttribute('href');link.style.display='none';
+  document.getElementById('printDocumentoCompartilhar').style.display='none';
+  document.getElementById('printPDFAjudaAndroid').style.display='none';
+  document.getElementById('printDocumentoBotao').innerText='Salvar PDF';
+}
+
+function baixarArquivoPDFMotoSOS(){
+  if(!urlPDFMotoSOS||!nomePDFMotoSOS)return;
+  const baixar=document.createElement('a');
+  baixar.href=urlPDFMotoSOS;baixar.download=nomePDFMotoSOS;
+  document.body.appendChild(baixar);baixar.click();baixar.remove();
+}
+
+async function compartilharPDFMotoSOS(){
+  if(!arquivoPDFMotoSOS)return alert('Gere o PDF primeiro.');
+  if(typeof navigator.share==='function' && navigator.canShare?.({files:[arquivoPDFMotoSOS]})){
+    try{await navigator.share({files:[arquivoPDFMotoSOS],title:arquivoPDFMotoSOS.name});}
+    catch(e){if(e.name!=='AbortError')alert('Não foi possível compartilhar neste aparelho. Tente Abrir PDF ou o navegador Chrome.');}
+  }else{
+    alert('Este aplicativo Android não oferece compartilhamento de arquivos. Abra o sistema no Chrome para baixar o PDF; para baixar diretamente dentro do aplicativo, o app Android precisa oferecer suporte nativo a downloads.');
+  }
+}
 
 function imprimirPaginaMotoSOS(){
   try{
@@ -5018,149 +5071,66 @@ function imprimirPaginaMotoSOS(){
 
 async function imprimirDocumentoMotoSOS(){
   if(gerandoPDFMotoSOS)return;
-
   const comprovante=document.body.classList.contains('comprovante-mode');
-  const pagina=comprovante
-    ? document.querySelector('.comprovante-pagina')
-    : document.querySelector('#printOS .os-print-page-compact, #printOS .os-print-page');
-  if(!pagina)return alert(comprovante?'Abra um comprovante antes de salvar o PDF.':'Abra uma O.S. antes de salvar o PDF.');
-
+  const pagina=document.querySelector(comprovante?'.comprovante-pagina':'.os-print-page-compact');
+  if(!pagina)return alert('Abra uma O.S. ou um comprovante antes de salvar o PDF.');
+  const numero=comprovante?(pagina.querySelector('.comprovante-dados dd')?.textContent||'pagamento'):(pagina.querySelector('.compact-os-box b')?.textContent||'OS');
+  const nome=(comprovante?'comprovante-':'OS-')+String(numero).replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf';
+  const chave=(comprovante?'comprovante:':'os:')+numero;
+  if(nomePDFMotoSOS && chavePDFMotoSOS===chave)return baixarArquivoPDFMotoSOS();
   const botao=document.getElementById('printDocumentoBotao');
   gerandoPDFMotoSOS=true;
-  if(botao){botao.disabled=true;botao.innerText='Gerando PDF…';}
-
+  botao.disabled=true;botao.innerText='Gerando PDF…';
   try{
-    if(typeof window.html2canvas!=='function'||!window.jspdf?.jsPDF)throw new Error('Gerador de PDF indisponível');
+    if(typeof window.html2canvas!=='function'||!window.jspdf?.jsPDF)throw new Error('Gerador indisponível');
     if(document.fonts?.ready)await document.fonts.ready;
-
-    // Garante que imagens (logo/QR) tenham tempo para carregar antes da captura.
-    const imagens=Array.from(pagina.querySelectorAll('img'));
-    await Promise.all(imagens.map(img=>{
-      if(img.complete)return Promise.resolve();
-      return new Promise(resolve=>{
-        const fim=()=>resolve();
-        img.addEventListener('load',fim,{once:true});
-        img.addEventListener('error',fim,{once:true});
-        setTimeout(fim,2500);
-      });
-    }));
-
-    const opcoes={
-      scale:2,
-      backgroundColor:'#ffffff',
-      useCORS:true,
-      allowTaint:false,
-      logging:false,
-      imageTimeout:10000,
-      windowWidth:1200,
-      windowHeight:Math.max(1400,pagina.scrollHeight+80),
-      scrollX:0,
-      scrollY:-window.scrollY
-    };
-
-    if(comprovante){
-      opcoes.onclone=doc=>{
-        const recibo=doc.querySelector('.comprovante-pagina');
+    // Renderiza o documento em largura fixa, inclusive em telas pequenas.
+    const canvas=await window.html2canvas(pagina,{
+      scale:comprovante?2:1.4,backgroundColor:'#ffffff',useCORS:true,logging:false,imageTimeout:10000,
+      windowWidth:1280,windowHeight:Math.max(1200,pagina.scrollHeight),
+      onclone:doc=>{
         const caixa=doc.getElementById('printOS');
-        if(caixa){
-          caixa.style.setProperty('width','105mm','important');
-          caixa.style.setProperty('max-width','105mm','important');
-          caixa.style.setProperty('margin','0','important');
-        }
-        if(recibo){
-          recibo.style.setProperty('--comprovante-escala','1');
-          recibo.style.zoom='1';
-          // html2canvas pode variar no suporte a grid; fixa o DL em duas colunas visuais.
-          recibo.querySelectorAll('dl').forEach(dl=>{
+        caixa.style.setProperty('width',comprovante?'105mm':'198mm','important');
+        caixa.style.setProperty('max-width',comprovante?'105mm':'198mm','important');
+        caixa.style.setProperty('margin','0','important');
+        const folha=doc.querySelector(comprovante?'.comprovante-pagina':'.os-print-page-compact');
+        if(comprovante){
+          folha.style.setProperty('--comprovante-escala','1');
+          folha.style.zoom='1';
+          // html2canvas não suporta CSS Grid; conserva as duas colunas do recibo.
+          folha.querySelectorAll('dl').forEach(dl=>{
             dl.style.display='block';
             Array.from(dl.children).forEach(item=>{
-              if(item.tagName==='DT')item.style.cssText='float:left;clear:left;width:145px;font-weight:700;margin-bottom:6px;';
-              else item.style.cssText='margin:0 0 6px 157px;min-height:16px;';
+              if(item.tagName==='DT'){item.style.cssText='float:left;clear:left;width:145px;font-weight:700;margin-bottom:6px;';}
+              else{item.style.cssText='margin:0 0 6px 157px;min-height:16px;';}
             });
           });
-        }
-      };
-    }else{
-      opcoes.onclone=doc=>{
-        const caixa=doc.getElementById('printOS');
-        const os=doc.querySelector('#printOS .os-print-page-compact, #printOS .os-print-page');
-        if(caixa){
-          caixa.style.setProperty('width','198mm','important');
-          caixa.style.setProperty('max-width','198mm','important');
-          caixa.style.setProperty('min-height','0','important');
-          caixa.style.setProperty('margin','0','important');
-          caixa.style.setProperty('padding','0','important');
-          caixa.style.setProperty('overflow','visible','important');
-        }
-        if(os){
-          os.style.setProperty('width','198mm','important');
-          os.style.setProperty('max-width','198mm','important');
-          os.style.setProperty('min-height','0','important');
-          os.style.setProperty('max-height','none','important');
-          os.style.setProperty('margin','0','important');
-          os.style.setProperty('overflow','visible','important');
-        }
-      };
-    }
-
-    const canvas=await window.html2canvas(pagina,opcoes);
+        }else{folha.style.setProperty('width','198mm','important');folha.style.setProperty('max-width','198mm','important');}
+      }
+    });
     if(!canvas.width||!canvas.height)throw new Error('Documento vazio');
-
     const pdf=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
-    let largura,altura,x,y;
-    if(comprovante){
-      largura=Math.min(105,277*canvas.width/canvas.height);
-      altura=largura*canvas.height/canvas.width;
-      x=(210-largura)/2;
-      y=10;
-    }else{
-      // Área útil A4: 198 x 285 mm (margens de 6 mm).
-      const maxW=198,maxH=285;
-      const escala=Math.min(maxW/canvas.width,maxH/canvas.height);
-      largura=canvas.width*escala;
-      altura=canvas.height*escala;
-      x=(210-largura)/2;
-      y=(297-altura)/2;
-    }
-
-    pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',x,y,largura,altura,undefined,'FAST');
-
-    let numero='documento';
-    let nome='documento.pdf';
-    if(comprovante){
-      numero=pagina.querySelector('dd')?.textContent||'pagamento';
-      nome='comprovante-'+String(numero).replace(/[^a-zA-Z0-9_-]/g,'')+'.pdf';
-    }else{
-      numero=pagina.querySelector('.compact-os-box b,.os-print-number-body b')?.textContent||'OS';
-      const seguro=String(numero).trim().replace(/[^a-zA-Z0-9_-]/g,'')||'OS';
-      nome='OS-'+seguro.replace(/^OS-?/i,'')+'.pdf';
-    }
-
+    const largura=Math.min(comprovante?105:190,277*canvas.width/canvas.height),altura=largura*canvas.height/canvas.width;
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.9),'JPEG',(210-largura)/2,10,largura,altura);
     const blob=pdf.output('blob');
-    if(urlPDFMotoSOS)URL.revokeObjectURL(urlPDFMotoSOS);
+    limparPDFMotoSOS();
     urlPDFMotoSOS=URL.createObjectURL(blob);
-
+    arquivoPDFMotoSOS=typeof File==='function'?new File([blob],nome,{type:'application/pdf'}):null;
+    nomePDFMotoSOS=nome;
+    chavePDFMotoSOS=chave;
     const link=document.getElementById('printDocumentoPDFLink');
-    if(link){
-      link.href=urlPDFMotoSOS;
-      link.download=nome;
-      link.innerText='Abrir PDF';
-      link.style.display='inline-block';
-    }
-
-    const baixar=document.createElement('a');
-    baixar.href=urlPDFMotoSOS;
-    baixar.download=nome;
-    baixar.style.display='none';
-    document.body.appendChild(baixar);
-    baixar.click();
-    baixar.remove();
+    link.href=urlPDFMotoSOS;link.style.display='inline-block';
+    if(arquivoPDFMotoSOS && navigator.canShare?.({files:[arquivoPDFMotoSOS]}))
+      document.getElementById('printDocumentoCompartilhar').style.display='inline-block';
+    if(/Android/i.test(navigator.userAgent))document.getElementById('printPDFAjudaAndroid').style.display='block';
+    botao.innerText='Baixar PDF';
+    if(!/Android/i.test(navigator.userAgent))baixarArquivoPDFMotoSOS();
   }catch(e){
-    console.error('Falha ao gerar PDF MotoSOS:',e);
-    alert('Não foi possível gerar o PDF. Use o botão Imprimir como alternativa e verifique o Console se o erro continuar.');
+    console.error('Falha ao gerar documento PDF:',e);
+    alert('Não foi possível gerar o PDF. Tente novamente ou use Imprimir.');
   }finally{
-    gerandoPDFMotoSOS=false;
-    if(botao){botao.disabled=false;botao.innerText='Salvar PDF';}
+    gerandoPDFMotoSOS=false;botao.disabled=false;
+    botao.innerText=nomePDFMotoSOS?'Baixar PDF':'Salvar PDF';
   }
 }
 
@@ -5219,6 +5189,7 @@ function openPrintComprovanteVenda(id,voltar='caixa'){
 }
 
 function mostrarComprovantePagamentoMotoSOS({tipo,numero,clienteId,motoTexto='',dataPagamento,formaPagamento,total,subtotal,desconto,itens,voltar}){
+  limparPDFMotoSOS();
   const e=db.empresa||{},c=cliente(clienteId);
   const d=dataPagamento?new Date(dataPagamento):null;
   const dataTexto=d&&!Number.isNaN(d.getTime())?new Intl.DateTimeFormat('pt-BR',{
@@ -5266,6 +5237,7 @@ function mostrarComprovantePagamentoMotoSOS({tipo,numero,clienteId,motoTexto='',
 function openPrintOS(id){
   let o=db.os.find(x=>String(x.id)===String(id));
   if(!o)return alert('O.S. não encontrada.');
+  limparPDFMotoSOS();
   document.body.classList.remove('comprovante-mode');
   document.getElementById('printDocumentoBotao').innerText='Salvar PDF';
   document.getElementById('printDocumentoImprimir').style.display='';
