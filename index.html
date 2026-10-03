@@ -742,6 +742,24 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
       </div>
     </section>
 
+
+    <section id="saldoConta" class="section">
+      <div class="card"><h2>Saldo em Conta</h2>
+        <p class="muted">Saldo acumulado dos recebimentos e saídas registrados, sem filtro de mês. Não inclui contas pendentes e não consulta o extrato bancário. Registre o saldo inicial, taxas e demais movimentos no Caixa para conciliar com sua conta.</p>
+        <div class="three">
+          <div class="card"><div class="muted">Entradas recebidas</div><div id="saldoContaEntradas" class="metric">—</div></div>
+          <div class="card"><div class="muted">Saídas registradas</div><div id="saldoContaSaidas" class="metric">—</div></div>
+          <div class="card"><div class="muted">Saldo registrado</div><div id="saldoContaTotal" class="metric">—</div></div>
+        </div>
+        <button class="blue" onclick="showSection('saldoConta')">Atualizar saldo</button>
+        <table id="saldoContaTable"></table>
+      </div>
+      <div class="card"><h3>Excluir VEND0001, VEND0002 e VEND0003</h3>
+        <p class="muted">A exclusão ainda não foi executada. Gere o comando para a oficina conectada e execute no SQL Editor do Supabase. Ele devolve os produtos ao estoque e remove os lançamentos de caixa e financeiro vinculados às três vendas, numa única transação.</p>
+        <button class="secondary" onclick="prepararExclusaoVendasSolicitadas()">Preparar exclusão das três vendas</button>
+        <textarea id="sqlExcluirVendasSolicitadas" readonly rows="16" style="width:100%;margin-top:12px" aria-label="Comando de exclusão para a oficina conectada"></textarea>
+      </div>
+    </section>
     <section id="vendas" class="section">
       <h1>Vendas</h1>
       <div class="two form-first">
@@ -2577,6 +2595,44 @@ function movimentosCaixaConsolidados(){
   }));
   return [...recebidos,...caixa].sort((a,b)=>String(b.data).localeCompare(String(a.data)));
 }
+
+function renderSaldoConta(){
+  if(!document.getElementById('saldoContaTable'))return;
+  const financeiros=(db.financeiroOficina||[]);
+  const bloqueados=new Set(financeiros.filter(f=>!['recebido','pago','paga','finalizada','finalizado'].includes(String(f.status||'').trim().toLowerCase())).map(chaveMovimentoOrigem));
+  const linhas=movimentosCaixaConsolidados().filter(m=>!bloqueados.has(chaveMovimentoOrigem(m)));
+  const entradas=linhas.reduce((s,m)=>s+Math.max(0,m.valor),0);
+  const saidas=linhas.reduce((s,m)=>s+Math.max(0,-m.valor),0);
+  setTextSafe('saldoContaEntradas',money(entradas));
+  setTextSafe('saldoContaSaidas',money(saidas));
+  setTextSafe('saldoContaTotal',money(entradas-saidas));
+  table('saldoContaTable',['Data','Origem','Descrição','Entrada / Saída'],linhas.map(m=>[brDate(m.data),m.origem,m.desc,money(m.valor)]));
+}
+function prepararExclusaoVendasSolicitadas(){
+  if(!sectionAllowed('saldoConta')||!currentOficinaId)return alert('Entre como administrador da oficina.');
+  const oficina=String(currentOficinaId).replace(/'/g,"''");
+  document.getElementById('sqlExcluirVendasSolicitadas').value=`BEGIN;
+-- Somente a oficina conectada. Os números são os persistidos no banco.
+LOCK TABLE public.vendas, public.estoque IN SHARE ROW EXCLUSIVE MODE;
+CREATE TEMP TABLE vendas_excluir_motosos ON COMMIT DROP AS
+SELECT id, oficina_id, produto_id, quantidade FROM public.vendas
+WHERE oficina_id = '${oficina}'
+AND numero_venda IN ('VEND0001','VEND0002','VEND0003');
+-- Conferir quais vendas foram selecionadas.
+SELECT * FROM vendas_excluir_motosos;
+UPDATE public.estoque e SET quantidade = COALESCE(e.quantidade,0) + x.qtd
+FROM (SELECT oficina_id, produto_id, SUM(quantidade) qtd
+FROM vendas_excluir_motosos GROUP BY oficina_id, produto_id) x
+WHERE e.id=x.produto_id AND e.oficina_id=x.oficina_id;
+DELETE FROM public.financeiro_oficina f USING vendas_excluir_motosos v
+WHERE f.oficina_id=v.oficina_id AND f.origem_id=v.id AND lower(f.origem)='venda';
+DELETE FROM public.caixa c USING vendas_excluir_motosos v
+WHERE c.oficina_id=v.oficina_id AND c.origem_id=v.id AND lower(c.origem)='venda';
+DELETE FROM public.vendas s USING vendas_excluir_motosos v
+WHERE s.id=v.id AND s.oficina_id=v.oficina_id;
+COMMIT;`;
+}
+
 function renderCaixa(){
   const tableEl=document.getElementById('caixaTable');
   if(!tableEl)return;
@@ -2634,7 +2690,7 @@ function load(persistir=true){
   if(persistir)localStorage.setItem(storageKey(),JSON.stringify(db));
 }
 function normalizarNumeracaoDocumentos(){
-  (db.vendas||[]).forEach((v,i)=>{v.numero='VEND'+String(i+1).padStart(4,'0')});
+  (db.vendas||[]).forEach(v=>{if(!v.numero)v.numero='VEND'+String(v.id).padStart(4,'0')});
   (db.os||[]).forEach((o,i)=>{o.numero='OS'+String(i+1).padStart(4,'0')});
 }
 function save(){limparCredenciaisCacheMotoSOS();localStorage.setItem(storageKey(),JSON.stringify(db));renderAll()}
@@ -2777,7 +2833,7 @@ function logout(){
 async function refreshSupabaseDataForSection(sectionId){
   if(!currentOficinaId)return;
   try{
-    if(['dashboard','financeiro','caixa','fechamentoCaixa','nfEntrada','relatorios','vendas','estoque'].includes(sectionId)){
+    if(['dashboard','financeiro','caixa','fechamentoCaixa','nfEntrada','relatorios','vendas','estoque','saldoConta'].includes(sectionId)){
       await carregarClientesSupabase();
       await carregarMotosSupabase();
       await carregarOSSupabase();
@@ -2820,7 +2876,7 @@ function sectionAllowed(id){
 
   // Regras oficiais: Start = Operação + Plano. Pro/Pro Fundador = acesso total.
   const start=['dashboard','clientes','motos','os','orcamentos','vendas','estoque','planos'];
-  const pro=['dashboard','clientes','motos','os','orcamentos','vendas','estoque','compras','nfEntrada','fiscal','garantias','financeiro','caixa','fechamentoCaixa','funcionarios','relatorios','usuarios','contatoPro','configuracoes','planos','auditoria'];
+  const pro=['dashboard','clientes','motos','os','orcamentos','vendas','estoque','compras','nfEntrada','fiscal','garantias','financeiro','caixa','fechamentoCaixa','funcionarios','relatorios','usuarios','contatoPro','configuracoes','planos','auditoria','saldoConta'];
 
   return (key==='pro'?pro:start).includes(id);
 }
@@ -2871,7 +2927,7 @@ function buildNav(){
   ].filter(i=>sectionAllowed(i[0]));
 
   const administracao=[
-    ['funcionarios','Funcionários'],['usuarios','Usuários'],['configuracoes','Configurações'],['planos','Plano'],['auditoria','Auditoria'],['contatoPro','Contato Pro']
+    ['saldoConta','Saldo em Conta'],['funcionarios','Funcionários'],['usuarios','Usuários'],['configuracoes','Configurações'],['planos','Plano'],['auditoria','Auditoria'],['contatoPro','Contato Pro']
   ].filter(i=>sectionAllowed(i[0]));
 
   renderDepartmentNav([
@@ -4054,7 +4110,7 @@ async function inserirNotaFiscalSupabase(nota){
 }
 // ===== V30 Controle Total =====
 function getPermissoesPadrao(perfil){
-  const todas=['dashboard','clientes','clientes_criar','clientes_editar','clientes_excluir','motos','motos_criar','motos_editar','os','os_criar','os_editar','orcamentos','vendas','vendas_criar','estoque','estoque_editar','caixa','fechamentoCaixa','financeiro','relatorios','nfEntrada','emitir_nfe','emitir_nfce','emitir_nfse','funcionarios','usuarios','configuracoes','auditoria','contatoPro'];
+  const todas=['dashboard','clientes','clientes_criar','clientes_editar','clientes_excluir','motos','motos_criar','motos_editar','os','os_criar','os_editar','orcamentos','vendas','vendas_criar','estoque','estoque_editar','caixa','fechamentoCaixa','financeiro','relatorios','nfEntrada','emitir_nfe','emitir_nfce','emitir_nfse','funcionarios','usuarios','configuracoes','auditoria','contatoPro','saldoConta'];
   const caixa=['caixa','fechamentoCaixa','financeiro','relatorios'];
   const atendente=['dashboard','clientes','clientes_criar','clientes_editar','motos','motos_criar','motos_editar','os','os_criar','os_editar','orcamentos','vendas','vendas_criar','estoque'];
   if(perfil==='adm')return todas;
@@ -4069,9 +4125,9 @@ function renderPermissoesUsuario(){
     ['Operação',['dashboard','clientes','clientes_criar','clientes_editar','clientes_excluir','motos','motos_criar','motos_editar','os','os_criar','os_editar','orcamentos','vendas','vendas_criar','estoque','estoque_editar']],
     ['Gestão',['caixa','fechamentoCaixa','financeiro','relatorios','nfEntrada']],
     ['Fiscal',['emitir_nfe','emitir_nfce','emitir_nfse']],
-    ['Administração',['funcionarios','usuarios','configuracoes','auditoria','contatoPro']]
+    ['Administração',['saldoConta','funcionarios','usuarios','configuracoes','auditoria','contatoPro']]
   ];
-  const nomes={dashboard:'Dashboard',clientes:'Clientes',clientes_criar:'Cadastrar clientes',clientes_editar:'Editar clientes',clientes_excluir:'Excluir clientes',motos:'Motos',motos_criar:'Cadastrar motos',motos_editar:'Editar motos',os:'O.S.',os_criar:'Criar O.S.',os_editar:'Editar O.S.',orcamentos:'Orçamentos',vendas:'Vendas',vendas_criar:'Criar vendas',estoque:'Estoque',estoque_editar:'Editar estoque',caixa:'Caixa',fechamentoCaixa:'Fechamento de Caixa',financeiro:'Financeiro',relatorios:'Relatórios',nfEntrada:'NF Entrada',emitir_nfe:'Emitir NF-e',emitir_nfce:'Emitir NFC-e',emitir_nfse:'Emitir NFS-e',funcionarios:'Funcionários',usuarios:'Usuários',configuracoes:'Configurações',auditoria:'Auditoria',contatoPro:'Contato Pro'};
+  const nomes={saldoConta:'Saldo em Conta',dashboard:'Dashboard',clientes:'Clientes',clientes_criar:'Cadastrar clientes',clientes_editar:'Editar clientes',clientes_excluir:'Excluir clientes',motos:'Motos',motos_criar:'Cadastrar motos',motos_editar:'Editar motos',os:'O.S.',os_criar:'Criar O.S.',os_editar:'Editar O.S.',orcamentos:'Orçamentos',vendas:'Vendas',vendas_criar:'Criar vendas',estoque:'Estoque',estoque_editar:'Editar estoque',caixa:'Caixa',fechamentoCaixa:'Fechamento de Caixa',financeiro:'Financeiro',relatorios:'Relatórios',nfEntrada:'NF Entrada',emitir_nfe:'Emitir NF-e',emitir_nfce:'Emitir NFC-e',emitir_nfse:'Emitir NFS-e',funcionarios:'Funcionários',usuarios:'Usuários',configuracoes:'Configurações',auditoria:'Auditoria',contatoPro:'Contato Pro'};
   box.innerHTML='<div class="perm-grid">'+itens.map(grupo=>`<div class="perm-card"><div class="perm-title">${grupo[0]}</div>${grupo[1].map(k=>htmlMotoSOS`<label><input type="checkbox" class="perm-check" value="${k}"> ${nomes[k]||k}</label>`).join('')}</div>`).join('')+'</div>';
   aplicarPermissoesPerfil();
 }
@@ -4752,6 +4808,7 @@ function iniciarVerificacaoAtualizacoesMotoSOS(){
 
 
 function renderAll(){
+  renderSaldoConta();
   try{renderV31();
   renderFinanceiroFormasV31();}catch(e){console.warn('V31 render:',e);}
  try{
