@@ -2219,6 +2219,7 @@ async function carregarOSSupabase(){
     entregaData:null,
     pagamentoData:null,
     pecas:Array.isArray(o.itens_pecas)?o.itens_pecas:[],
+    estoqueBaixadoItens:Array.isArray(o.estoque_baixado_itens)?o.estoque_baixado_itens:[],
     mao:Array.isArray(o.itens_mao_obra)?o.itens_mao_obra:[],
     valorTotal:Number(o.valor_total||0)
   }));
@@ -2602,6 +2603,12 @@ function calcularCustosSaldoConta(){
     const id=String(v.produtoId||v.produto_id||'');
     quantidadesVendidas.set(id,(quantidadesVendidas.get(id)||0)+Math.max(0,Number(v.qtd||v.quantidade||0)));
   });
+  (db.os||[]).forEach(o=>{
+    (o.estoqueBaixadoItens||[]).forEach(i=>{
+      const id=String(i.produtoId||i.produto_id||'');
+      quantidadesVendidas.set(id,(quantidadesVendidas.get(id)||0)+Math.max(0,Number(i.qtd||i.quantidade||0)));
+    });
+  });
   const despesasRegistradas=new Map();
   movimentosCaixaConsolidados().forEach(m=>{
     if(m.valor>=0 || !['estoque','compraestoque','compra de estoque'].includes(String(m.origem||'').trim().toLowerCase()))return;
@@ -2631,7 +2638,7 @@ function renderSaldoConta(){
   setTextSafe('saldoContaSaidas',money(saidas));
   setTextSafe('saldoContaCustos',money(totalCustos));
   setTextSafe('saldoContaTotal',money(entradas-saidas-totalCustos));
-  table('saldoContaCustosTable',['Produto','Em estoque','Qtd. vendida','Custo unitário','Custo estimado','Saída já vinculada','A descontar'],custos.map(p=>[p.produto,p.quantidade,p.vendida,money(p.custo),money(p.total),money(p.registrado),money(p.descontar)]));
+  table('saldoContaCustosTable',['Produto','Em estoque','Qtd. usada em vendas/O.S.','Custo unitário','Custo estimado','Saída já vinculada','A descontar'],custos.map(p=>[p.produto,p.quantidade,p.vendida,money(p.custo),money(p.total),money(p.registrado),money(p.descontar)]));
   table('saldoContaTable',['Data','Origem','Descrição','Entrada / Saída'],linhas.map(m=>[brDate(m.data),m.origem,m.desc,money(m.valor)]));
 }
 
@@ -3211,7 +3218,20 @@ async function addOS(){
 }
 function startEditOS(id){let o=db.os.find(x=>x.id===id);tempEdit=JSON.parse(JSON.stringify(o));document.getElementById('editOSBox').style.display='block';document.getElementById('editOSId').value=id;document.getElementById('editOSTitle').innerText='Editar '+o.numero;document.getElementById('editOSStatus').value=o.status;renderOSItens()}
 function cancelOSEdit(){tempEdit=null;document.getElementById('editOSBox').style.display='none'}
-function addPecaToOS(){if(!tempEdit)return;let pid=val('osPecaSelect'),qtd=Number(val('osPecaQtd'));let p=produto(pid);if(!p.id)return alert('Selecione uma peça do estoque.');if(qtd<=0)return alert('Quantidade inválida.');if(qtd>Number(p.qtd))return alert('Estoque insuficiente. Disponível: '+p.qtd);tempEdit.pecas.push({produtoId:p.id,codigo:p.codigo,nome:p.produto,qtd,unit:Number(p.venda),total:qtd*Number(p.venda)});renderOSItens()}
+function addPecaToOS(){
+  if(!tempEdit)return;
+  const pid=val('osPecaSelect'),qtd=Number(val('osPecaQtd'));
+  const p=produto(pid);
+  if(!p.id)return alert('Selecione uma peça do estoque.');
+  if(!Number.isInteger(qtd)||qtd<=0)return alert('Informe uma quantidade inteira maior que zero.');
+  const original=(db.os||[]).find(o=>String(o.id)===String(tempEdit.id));
+  const anteriores=(original?.estoqueBaixadoItens||[]).filter(i=>String(i.produtoId||i.produto_id)===String(pid)).reduce((s,i)=>s+Number(i.qtd||i.quantidade||0),0);
+  const noEditor=(tempEdit.pecas||[]).filter(i=>String(i.produtoId||i.produto_id)===String(pid)).reduce((s,i)=>s+Number(i.qtd||i.quantidade||0),0);
+  const disponivel=Number(p.qtd||0)+anteriores-noEditor;
+  if(qtd>disponivel)return alert('Estoque insuficiente. Disponível para adicionar: '+Math.max(0,disponivel));
+  tempEdit.pecas.push({produtoId:p.id,codigo:p.codigo,nome:p.produto,qtd,unit:Number(p.venda),custoUnitario:Number(p.custo||0),total:qtd*Number(p.venda)});
+  renderOSItens();
+}
 function addMaoToOS(){if(!tempEdit)return;let fid=val('osMecanico'),mec=func(fid),desc=val('osMaoDesc'),valor=Number(val('osMaoValor'));if(!mec.id)return alert('Selecione o mecânico.');if(!desc||valor<=0)return alert('Descrição e valor são obrigatórios.');let com=valor*(Number(mec.comissao||0)/100);tempEdit.mao.push({funcId:mec.id,mecanico:mec.nome,desc,valor,comissaoPerc:Number(mec.comissao||0),comissaoValor:com});clear(['osMaoDesc']);document.getElementById('osMaoValor').value=0;renderOSItens()}
 function renderOSItens(){let d=document.getElementById('osItensResumo');if(!tempEdit){d.innerHTML='';return}let pecas=tempEdit.pecas.map((p,i)=>htmlMotoSOS`<div>Peça: ${p.codigo} - ${p.nome} | Qtd ${p.qtd} | Total ${money(p.total)} <button class="small secondary" onclick="tempEdit.pecas.splice(${i},1);renderOSItens()">remover</button></div>`).join('')||'<div>Nenhuma peça.</div>';let mao=tempEdit.mao.map((m,i)=>htmlMotoSOS`<div>M.O.: ${m.desc} | ${m.mecanico} | ${money(m.valor)} | Comissão ${money(m.comissaoValor)} <button class="small secondary" onclick="tempEdit.mao.splice(${i},1);renderOSItens()">remover</button></div>`).join('')||'<div>Nenhuma mão de obra.</div>';d.innerHTML='<b>Peças</b>'+pecas+'<br><b>Mão de obra</b>'+mao}
 async function saveOSEdit(){
@@ -3226,8 +3246,7 @@ async function saveOSEdit(){
     let newQtd=newPecas.filter(x=>x.produtoId===p.produtoId).reduce((s,x)=>s+x.qtd,0);
     if(newQtd>oldQtd){let prod=produto(p.produtoId);let diff=newQtd-oldQtd;if(diff>Number(prod.qtd))return alert('Estoque insuficiente para '+prod.produto)}
   }
-  oldPecas.forEach(p=>{let prod=produto(p.produtoId);if(prod.id)prod.qtd=Number(prod.qtd)+Number(p.qtd)});
-  newPecas.forEach(p=>{let prod=produto(p.produtoId);if(prod.id)prod.qtd=Number(prod.qtd)-Number(p.qtd)});
+  // A diferença das peças é aplicada pelo banco; não alterar apenas o cache.
   let newStatus=val('editOSStatus');
   if(newStatus==='Entregue' && old.status!=='Entregue') tempEdit.entregaData=todayISO();
   if(newStatus!=='Entregue') tempEdit.entregaData=null;
@@ -3252,6 +3271,7 @@ async function deleteOS(id){
   try{
     await excluirOSSupabase(id);
     await carregarOSSupabase();
+    await carregarEstoqueSupabase();
     renderAll();
     alert('O.S. excluída.');
   }catch(e){
@@ -3370,7 +3390,7 @@ async function addVenda(){
   };
   try{
     await criarVendaSupabase(v);
-    await atualizarQuantidadeEstoqueSupabase(p.id,Number(p.qtd)-qtd);
+    // O gatilho do banco baixa estoque na mesma transação da venda.
     await carregarEstoqueSupabase();
     await carregarVendasSupabase();
     document.getElementById('vendaQtd').value=1;
@@ -5544,6 +5564,7 @@ carregarOSSupabase=async function(){
     dataEntrega:o.data_entrega||'',
     pagamentoData:null,
     pecas:Array.isArray(o.itens_pecas)?o.itens_pecas:[],
+    estoqueBaixadoItens:Array.isArray(o.estoque_baixado_itens)?o.estoque_baixado_itens:[],
     mao:Array.isArray(o.itens_mao_obra)?o.itens_mao_obra:[],
     valorTotal:Number(o.valor_total||0)
   }));
@@ -5669,6 +5690,7 @@ saveOSEdit=async function(){
     await atualizarOSSupabase(tempEdit);
     if(tempEdit.status==='Entregue' && oldStatus!=='Entregue')await aplicarComissaoOS(tempEdit);
     await carregarOSSupabase();
+    await carregarEstoqueSupabase();
     tempEdit=null;document.getElementById('editOSBox').style.display='none';renderAll();
     alert('O.S. atualizada.');
   }catch(e){console.error(e);alert('Erro ao atualizar O.S.');}
@@ -5848,6 +5870,35 @@ renderAll = function(){
   renderTabelaFuncionariosCorrigida();
 };
 
+
+// Estoque persistido: a instalação SQL é obrigatória; não salvar sem ela.
+async function verificarBaixaEstoqueInstalada(tabela){
+  oficinaIdAtualObrigatoria();
+  const resp=await fetch(`${SUPABASE_REST_URL}/${tabela}?oficina_id=eq.${encodeURIComponent(currentOficinaId)}&select=estoque_baixado_itens&limit=0`,{headers:supabaseHeaders(),cache:'no-store'});
+  if(!resp.ok)throw new Error('A baixa automática de estoque precisa ser instalada no Supabase. Execute corrigir_estoque_motosos.sql antes de salvar vendas ou O.S.');
+}
+function mensagemErroEstoque(e){
+  const bruto=String(e?.message||e||'Falha ao salvar.');
+  try{return JSON.parse(bruto).message||bruto;}catch{return bruto;}
+}
+for(const nome of ['criarOSSupabase','atualizarOSSupabase','excluirOSSupabase','criarVendaSupabase']){
+  const original=window[nome];
+  window[nome]=async function(...args){
+    try{
+      await verificarBaixaEstoqueInstalada(nome==='criarVendaSupabase'?'vendas':'ordens_servico');
+      return await original.apply(this,args);
+    }catch(e){alert(mensagemErroEstoque(e));throw e;}
+  };
+}
+// Impede dois cliques concorrentes em uma ação de gravação.
+for(const nome of ['addOS','addVenda','saveOSEdit']){
+  const original=window[nome];let gravando=false;
+  window[nome]=async function(...args){
+    if(gravando)return;
+    gravando=true;
+    try{return await original.apply(this,args);}finally{gravando=false;}
+  };
+}
 </script>
 
 <div id="updateLoadingOverlay" class="update-loading-overlay" role="dialog" aria-modal="true" aria-labelledby="updateLoadingTitle">
