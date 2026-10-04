@@ -745,19 +745,19 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
 
     <section id="saldoConta" class="section">
       <div class="card"><h2>Saldo em Conta</h2>
-        <p class="muted">Saldo acumulado dos recebimentos e saídas registrados, sem filtro de mês. Não inclui contas pendentes e não consulta o extrato bancário. Registre o saldo inicial, taxas e demais movimentos no Caixa para conciliar com sua conta.</p>
+        <p class="muted">Recebimentos menos saídas registradas e custos dos produtos. Atualizar recalcula os valores, sem criar outra cobrança. Os custos são estimados pelo custo atual cadastrado e pelas quantidades em estoque e vendidas; alterações no custo modificam essa estimativa. Não consulta o extrato bancário.</p>
         <div class="three">
           <div class="card"><div class="muted">Entradas recebidas</div><div id="saldoContaEntradas" class="metric">—</div></div>
           <div class="card"><div class="muted">Saídas registradas</div><div id="saldoContaSaidas" class="metric">—</div></div>
-          <div class="card"><div class="muted">Saldo registrado</div><div id="saldoContaTotal" class="metric">—</div></div>
+          <div class="card"><div class="muted">Saldo após custos (estimado)</div><div id="saldoContaTotal" class="metric">—</div></div>
         </div>
+        <div class="card"><div class="muted">Custos de produtos ainda não lançados nas saídas</div><div id="saldoContaCustos" class="metric">—</div></div>
+        <p class="muted">Saídas de compra com origem Estoque, CompraEstoque ou Compra de estoque e ID do produto são abatidas do custo estimado para evitar desconto em duplicidade. Compras lançadas como saída manual sem vínculo precisam ser conciliadas.</p>
         <button class="blue" onclick="showSection('saldoConta')">Atualizar saldo</button>
+        <h3>Custos dos produtos</h3>
+        <table id="saldoContaCustosTable"></table>
+        <h3>Recebimentos e saídas</h3>
         <table id="saldoContaTable"></table>
-      </div>
-      <div class="card"><h3>Excluir VEND0001, VEND0002 e VEND0003</h3>
-        <p class="muted">A exclusão ainda não foi executada. Gere o comando para a oficina conectada e execute no SQL Editor do Supabase. Ele devolve os produtos ao estoque e remove os lançamentos de caixa e financeiro vinculados às três vendas, numa única transação.</p>
-        <button class="secondary" onclick="prepararExclusaoVendasSolicitadas()">Preparar exclusão das três vendas</button>
-        <textarea id="sqlExcluirVendasSolicitadas" readonly rows="16" style="width:100%;margin-top:12px" aria-label="Comando de exclusão para a oficina conectada"></textarea>
       </div>
     </section>
     <section id="vendas" class="section">
@@ -2596,41 +2596,43 @@ function movimentosCaixaConsolidados(){
   return [...recebidos,...caixa].sort((a,b)=>String(b.data).localeCompare(String(a.data)));
 }
 
+function calcularCustosSaldoConta(){
+  const quantidadesVendidas=new Map();
+  (db.vendas||[]).filter(v=>!['cancelada','cancelado'].includes(String(v.status||'').trim().toLowerCase())).forEach(v=>{
+    const id=String(v.produtoId||v.produto_id||'');
+    quantidadesVendidas.set(id,(quantidadesVendidas.get(id)||0)+Math.max(0,Number(v.qtd||v.quantidade||0)));
+  });
+  const despesasRegistradas=new Map();
+  movimentosCaixaConsolidados().forEach(m=>{
+    if(m.valor>=0 || !['estoque','compraestoque','compra de estoque'].includes(String(m.origem||'').trim().toLowerCase()))return;
+    const id=String(m.origemId||'');
+    if(id)despesasRegistradas.set(id,(despesasRegistradas.get(id)||0)+Math.abs(m.valor));
+  });
+  return (db.estoque||[]).map(p=>{
+    const id=String(p.id);
+    const quantidade=Math.max(0,Number(p.qtd||0));
+    const vendida=quantidadesVendidas.get(id)||0;
+    const custo=Math.max(0,Number(p.custo||0));
+    const total=Math.round((quantidade+vendida)*custo*100)/100;
+    const registrado=despesasRegistradas.get(id)||0;
+    return {produto:p.produto||p.codigo||id,quantidade,vendida,custo,total,registrado,descontar:Math.max(0,total-registrado)};
+  });
+}
 function renderSaldoConta(){
   if(!document.getElementById('saldoContaTable'))return;
   const financeiros=(db.financeiroOficina||[]);
-  const bloqueados=new Set(financeiros.filter(f=>!['recebido','pago','paga','finalizada','finalizado'].includes(String(f.status||'').trim().toLowerCase())).map(chaveMovimentoOrigem));
+  const bloqueados=new Set(financeiros.filter(f=>!['recebido','pago','paga','finalizada','finalizado'].includes(String(f.status||'').trim().toLowerCase())).map(chaveMovimentoOrigem).filter(Boolean));
   const linhas=movimentosCaixaConsolidados().filter(m=>!bloqueados.has(chaveMovimentoOrigem(m)));
   const entradas=linhas.reduce((s,m)=>s+Math.max(0,m.valor),0);
   const saidas=linhas.reduce((s,m)=>s+Math.max(0,-m.valor),0);
+  const custos=calcularCustosSaldoConta();
+  const totalCustos=custos.reduce((s,p)=>s+p.descontar,0);
   setTextSafe('saldoContaEntradas',money(entradas));
   setTextSafe('saldoContaSaidas',money(saidas));
-  setTextSafe('saldoContaTotal',money(entradas-saidas));
+  setTextSafe('saldoContaCustos',money(totalCustos));
+  setTextSafe('saldoContaTotal',money(entradas-saidas-totalCustos));
+  table('saldoContaCustosTable',['Produto','Em estoque','Qtd. vendida','Custo unitário','Custo estimado','Saída já vinculada','A descontar'],custos.map(p=>[p.produto,p.quantidade,p.vendida,money(p.custo),money(p.total),money(p.registrado),money(p.descontar)]));
   table('saldoContaTable',['Data','Origem','Descrição','Entrada / Saída'],linhas.map(m=>[brDate(m.data),m.origem,m.desc,money(m.valor)]));
-}
-function prepararExclusaoVendasSolicitadas(){
-  if(!sectionAllowed('saldoConta')||!currentOficinaId)return alert('Entre como administrador da oficina.');
-  const oficina=String(currentOficinaId).replace(/'/g,"''");
-  document.getElementById('sqlExcluirVendasSolicitadas').value=`BEGIN;
--- Somente a oficina conectada. Os números são os persistidos no banco.
-LOCK TABLE public.vendas, public.estoque IN SHARE ROW EXCLUSIVE MODE;
-CREATE TEMP TABLE vendas_excluir_motosos ON COMMIT DROP AS
-SELECT id, oficina_id, produto_id, quantidade FROM public.vendas
-WHERE oficina_id = '${oficina}'
-AND numero_venda IN ('VEND0001','VEND0002','VEND0003');
--- Conferir quais vendas foram selecionadas.
-SELECT * FROM vendas_excluir_motosos;
-UPDATE public.estoque e SET quantidade = COALESCE(e.quantidade,0) + x.qtd
-FROM (SELECT oficina_id, produto_id, SUM(quantidade) qtd
-FROM vendas_excluir_motosos GROUP BY oficina_id, produto_id) x
-WHERE e.id=x.produto_id AND e.oficina_id=x.oficina_id;
-DELETE FROM public.financeiro_oficina f USING vendas_excluir_motosos v
-WHERE f.oficina_id=v.oficina_id AND f.origem_id=v.id AND lower(f.origem)='venda';
-DELETE FROM public.caixa c USING vendas_excluir_motosos v
-WHERE c.oficina_id=v.oficina_id AND c.origem_id=v.id AND lower(c.origem)='venda';
-DELETE FROM public.vendas s USING vendas_excluir_motosos v
-WHERE s.id=v.id AND s.oficina_id=v.oficina_id;
-COMMIT;`;
 }
 
 function renderCaixa(){
