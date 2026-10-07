@@ -5721,6 +5721,15 @@ renderAll=function(){
 };
 
 
+function valorConsultaPublicaOS(os){
+  const total=os.valor_total;
+  if(total!==null && total!==undefined && total!=='' && Number.isFinite(Number(total)))return Number(total);
+  const soma=(itens,campo)=>Array.isArray(itens)?itens.reduce((s,i)=>s+(Number.isFinite(Number(i[campo]))?Number(i[campo]):0),0):0;
+  const pecas=os.valor_pecas!==null && os.valor_pecas!==undefined?Number(os.valor_pecas):soma(os.itens_pecas,'total');
+  const mao=os.mao_obra!==null && os.mao_obra!==undefined?Number(os.mao_obra):soma(os.itens_mao_obra,'valor');
+  return (Number.isFinite(pecas)?pecas:0)+(Number.isFinite(mao)?mao:0);
+}
+
 async function abrirConsultaPublicaOS(){
   const params=new URLSearchParams(location.search);
   const numero=params.get('os');
@@ -5740,6 +5749,7 @@ async function abrirConsultaPublicaOS(){
     publicEl.innerHTML=`<div class="public-os-card">
       <h1>Consulta de O.S.</h1>
       <p><b>Número:</b> ${escapeHtml(os.numero_os||numero)}</p>
+      <div class="public-os-total" style="margin:18px 0;padding:16px;border-radius:12px;background:#eff6ff;color:#163a65"><div>Valor total da O.S.</div><strong style="display:block;font-size:28px;margin-top:6px">${escapeHtml(money(valorConsultaPublicaOS(os)))}</strong></div>
       <div class="public-status">${escapeHtml(os.status||'Em andamento')}</div>
       <p><b>Problema relatado:</b><br>${escapeHtml(os.problema_relatado||'-')}</p>
       <p><b>Data entrada:</b> ${brDate(String(os.data_entrada||os.criado_em||'').slice(0,10))||'-'}</p>
