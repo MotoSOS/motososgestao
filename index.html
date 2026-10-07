@@ -544,6 +544,19 @@ html.update-resuming #login{display:none!important}
 @keyframes motosos-loading{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.update-loading-spinner{animation-duration:2s}}
 @media print{.update-loading-overlay{display:none!important}}
+
+/* O.S. com continuação: mantém todas as linhas e permite mais páginas. */
+#printOS .os-print-page-compact{max-height:none!important;overflow:visible!important}
+@media print{
+  body:not(.comprovante-mode),html:has(body:not(.comprovante-mode)){height:auto!important;overflow:visible!important}
+  body:not(.comprovante-mode) #printOS{max-height:none!important;overflow:visible!important}
+  body:not(.comprovante-mode) #printOS .os-print-page-compact{max-height:none!important;min-height:0!important;overflow:visible!important;break-inside:auto!important;page-break-inside:auto!important}
+  body:not(.comprovante-mode) #printOS .compact-box.full{break-inside:auto!important;page-break-inside:auto!important}
+  body:not(.comprovante-mode) #printOS .compact-table tr,
+  body:not(.comprovante-mode) #printOS .compact-total,
+  body:not(.comprovante-mode) #printOS .compact-footer{break-inside:avoid!important;page-break-inside:avoid!important}
+  body:not(.comprovante-mode) #printOS .compact-table thead{display:table-header-group!important}
+}
 </style>
 <script>
 try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentElement.classList.add('update-resuming');}catch(e){}
@@ -5164,6 +5177,7 @@ async function imprimirDocumentoMotoSOS(){
     if(typeof window.html2canvas!=='function'||!window.jspdf?.jsPDF)throw new Error('Gerador indisponível');
     if(document.fonts?.ready)await document.fonts.ready;
     // Renderiza o documento em largura fixa, inclusive em telas pequenas.
+    let blocosOSPDF=[];
     const canvas=await window.html2canvas(pagina,{
       scale:comprovante?2:1.4,backgroundColor:'#ffffff',useCORS:true,logging:false,imageTimeout:10000,
       windowWidth:1280,windowHeight:Math.max(1200,pagina.scrollHeight),
@@ -5184,13 +5198,40 @@ async function imprimirDocumentoMotoSOS(){
               else{item.style.cssText='margin:0 0 6px 157px;min-height:16px;';}
             });
           });
-        }else{folha.style.setProperty('width','198mm','important');folha.style.setProperty('max-width','198mm','important');}
+        }else{
+          folha.style.setProperty('width','198mm','important');folha.style.setProperty('max-width','198mm','important');
+          folha.style.setProperty('max-height','none','important');folha.style.setProperty('overflow','visible','important');
+          caixa.style.setProperty('max-height','none','important');caixa.style.setProperty('overflow','visible','important');
+          const base=folha.getBoundingClientRect();
+          blocosOSPDF=Array.from(folha.querySelectorAll('.compact-table tr,.compact-total,.compact-footer')).map(el=>{
+            const r=el.getBoundingClientRect();return {inicio:(r.top-base.top)/base.width,fim:(r.bottom-base.top)/base.width};
+          });
+        }
       }
     });
     if(!canvas.width||!canvas.height)throw new Error('Documento vazio');
     const pdf=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
-    const largura=Math.min(comprovante?105:190,277*canvas.width/canvas.height),altura=largura*canvas.height/canvas.width;
-    pdf.addImage(canvas.toDataURL('image/jpeg',0.9),'JPEG',(210-largura)/2,10,largura,altura);
+    if(comprovante){
+      const largura=Math.min(105,277*canvas.width/canvas.height),altura=largura*canvas.height/canvas.width;
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.9),'JPEG',(210-largura)/2,10,largura,altura);
+    }else{
+      const largura=190;
+      const limite=Math.floor(277*canvas.width/largura);
+      let inicio=0,paginaPDF=0;
+      while(inicio<canvas.height){
+        let fim=Math.min(canvas.height,inicio+limite);
+        for(const bloco of blocosOSPDF){
+          const topo=Math.floor(bloco.inicio*canvas.width),base=Math.ceil(bloco.fim*canvas.width);
+          if(topo>inicio && topo<fim && base>fim)fim=topo;
+        }
+        if(fim<=inicio)fim=Math.min(canvas.height,inicio+limite);
+        const trecho=document.createElement('canvas');trecho.width=canvas.width;trecho.height=fim-inicio;
+        trecho.getContext('2d').drawImage(canvas,0,inicio,canvas.width,trecho.height,0,0,canvas.width,trecho.height);
+        if(paginaPDF++)pdf.addPage();
+        pdf.addImage(trecho.toDataURL('image/jpeg',0.9),'JPEG',10,10,largura,trecho.height*largura/canvas.width);
+        inicio=fim;
+      }
+    }
     const blob=pdf.output('blob');
     limparPDFMotoSOS();
     urlPDFMotoSOS=URL.createObjectURL(blob);
@@ -5331,8 +5372,8 @@ function openPrintOS(id){
   const qr=qrUrl(link,92);
   const logo=logoSeguraMotoSOS(e.logo)?`<img src="${escapeHtml(logoSeguraMotoSOS(e.logo))}" alt="Logo da oficina">`:`<div class="os-print-logo-fallback">Moto<span>SOS</span></div>`;
   const mecanico=func(o.mecanicoId).nome || (o.mao||[])[0]?.mecanico || '-';
-  const pecas=(o.pecas||[]).slice(0,7).map((p,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(p.nome||p.descricao||'Peça')}</td><td>${Number(p.qtd||p.quantidade||0)}</td><td>${money(p.total||0)}</td></tr>`).join('') || '<tr><td>-</td><td>Sem peças lançadas</td><td>-</td><td>R$ 0,00</td></tr>';
-  const mao=(o.mao||[]).slice(0,5).map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x.desc||x.descricao||'Mão de obra')}</td><td>${escapeHtml(x.mecanico||func(x.funcId).nome||mecanico||'-')}</td><td>${money(x.valor||0)}</td></tr>`).join('') || '<tr><td>-</td><td>Sem mão de obra lançada</td><td>-</td><td>R$ 0,00</td></tr>';
+  const pecas=(o.pecas||[]).map((p,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(p.nome||p.descricao||'Peça')}</td><td>${Number(p.qtd||p.quantidade||0)}</td><td>${money(p.total||0)}</td></tr>`).join('') || '<tr><td>-</td><td>Sem peças lançadas</td><td>-</td><td>R$ 0,00</td></tr>';
+  const mao=(o.mao||[]).map((x,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(x.desc||x.descricao||'Mão de obra')}</td><td>${escapeHtml(x.mecanico||func(x.funcId).nome||mecanico||'-')}</td><td>${money(x.valor||0)}</td></tr>`).join('') || '<tr><td>-</td><td>Sem mão de obra lançada</td><td>-</td><td>R$ 0,00</td></tr>';
   document.getElementById('printOS').innerHTML=`
   <div class="os-print-page os-print-page-compact">
     <div class="os-print-header compact-head">
@@ -5365,8 +5406,8 @@ function openPrintOS(id){
     <div class="compact-box full"><h2>MECÂNICO RESPONSÁVEL</h2><p>${escapeHtml(mecanico)}</p></div>
     <div class="compact-box full"><h2>PROBLEMA RELATADO</h2><p>${escapeHtml(o.problema||o.problema_relatado||'')}</p></div>
 
-    <div class="compact-box full"><h2>PEÇAS</h2><table class="compact-table"><tr><th>#</th><th>Descrição</th><th>Qtd</th><th>Total</th></tr>${pecas}<tr><td colspan="3"><b>Total peças</b></td><td><b>${money(tp)}</b></td></tr></table></div>
-    <div class="compact-box full"><h2>MÃO DE OBRA</h2><table class="compact-table"><tr><th>#</th><th>Serviço</th><th>Mecânico</th><th>Valor</th></tr>${mao}<tr><td colspan="3"><b>Total mão de obra</b></td><td><b>${money(tm)}</b></td></tr></table></div>
+    <div class="compact-box full"><h2>PEÇAS</h2><table class="compact-table"><thead><tr><th>#</th><th>Descrição</th><th>Qtd</th><th>Total</th></tr></thead><tbody>${pecas}<tr><td colspan="3"><b>Total peças</b></td><td><b>${money(tp)}</b></td></tr></tbody></table></div>
+    <div class="compact-box full"><h2>MÃO DE OBRA</h2><table class="compact-table"><thead><tr><th>#</th><th>Serviço</th><th>Mecânico</th><th>Valor</th></tr></thead><tbody>${mao}<tr><td colspan="3"><b>Total mão de obra</b></td><td><b>${money(tm)}</b></td></tr></tbody></table></div>
 
     <div class="compact-total"><span>VALOR TOTAL</span><strong>${money(total)}</strong></div>
 
