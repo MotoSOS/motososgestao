@@ -694,10 +694,10 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
           <label>Placa</label>
           <input id="motoPlaca" placeholder="Digite a placa da moto">
           <div class="row" id="placaAutoBox">
-            <button class="blue" onclick="puxarDadosMotoPorPlaca()" id="btnConsultaPlaca">Abrir consulta da placa</button>
+            <button class="blue" onclick="puxarDadosMotoPorPlaca()" id="btnConsultaPlaca">Consultar placa</button>
           </div>
           <div id="placaManualNote" class="manual-note"></div>
-          <details id="placaImportacao"><summary>Colar resultado da consulta</summary>
+          <details id="placaImportacao"><summary>Alternativa: colar resultado de uma consulta</summary>
             <p class="muted">Na página do resultado, selecione e copie o texto com placa, marca, modelo, cor e ano. Cole abaixo e clique em Preencher dados. Confira os campos antes de salvar.</p>
             <textarea id="placaResultadoTexto" rows="7" placeholder="Cole aqui o texto do resultado gratuito"></textarea>
             <button type="button" class="secondary" onclick="importarResultadoPlacaMotoSOS()">Preencher dados</button>
@@ -708,7 +708,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
           <label>Cor</label><input id="motoCor" placeholder="Preencha manualmente">
           <label>Ano</label><input id="motoAno" placeholder="Preencha manualmente">
           <label>Cliente</label><select id="motoCliente"></select>
-          <p class="muted">A consulta abre em outra aba. Cole o resultado para preencher os dados e selecione o cliente antes de salvar.</p>
+          <p class="muted">Confira os dados recebidos e selecione o cliente antes de salvar. Se a consulta estiver indisponível, preencha manualmente.</p>
           <div class="row"><button onclick="addMoto()">Salvar moto</button></div>
         </div>
         <div class="card list-card"><h2>Motos cadastradas</h2><table id="motosTable"></table></div>
@@ -2777,6 +2777,7 @@ async function login(opcoes={}){
       return avisar('Acesso bloqueado por pendência financeira ou assinatura cancelada. Regularize a mensalidade com o MotoSOS para acessar novamente.');
     }
 
+    credenciaisConsultaPlacaMotoSOS={usuario:u,senha:p};
     currentOficinaId=usuario.oficina_id;
     currentOficinaStatus=statusOficina;
     currentSupabaseUser=perfilSeguroMotoSOS(usuario);
@@ -2837,6 +2838,7 @@ async function login(opcoes={}){
   }
 }
 function logout(){
+  credenciaisConsultaPlacaMotoSOS=null;
   for(const timer of [intervaloConfigComercial,intervaloAvisosAdmin,intervaloAtualizacoesMotoSOS])if(timer)clearInterval(timer);
   intervaloConfigComercial=null;intervaloAvisosAdmin=null;intervaloAtualizacoesMotoSOS=null;
   if(clienteRealtimeAvisos&&canalRealtimeAvisos)clienteRealtimeAvisos.removeChannel(canalRealtimeAvisos);
@@ -3142,12 +3144,35 @@ function cancelClienteEdit(){document.getElementById('editClienteBox').style.dis
 
 function consultaPlacaLiberada(){return true}
 function normalizarPlacaMotoSOS(placa){return String(placa||'').toUpperCase().replace(/[^A-Z0-9]/g,'')}
-function puxarDadosMotoPorPlaca(){
+let credenciaisConsultaPlacaMotoSOS=null;
+let consultaPlacaEmAndamentoMotoSOS=false;
+async function puxarDadosMotoPorPlaca(){
+  if(consultaPlacaEmAndamentoMotoSOS)return;
   const placa=normalizarPlacaMotoSOS(val('motoPlaca'));
-  if(!/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(placa))return alert('Digite uma placa válida para consultar.');
-  document.getElementById('motoPlaca').value=placa;
-  document.getElementById('placaImportacao').open=true;
-  window.open('https://detetiveveicular.com/checkout/'+encodeURIComponent(placa),'_blank','noopener,noreferrer');
+  const status=document.getElementById('placaImportacaoStatus');
+  if(!/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(placa)){status.textContent='Digite uma placa válida para consultar.';return;}
+  if(!credenciaisConsultaPlacaMotoSOS||!currentOficinaId){status.textContent='Saia e entre novamente no MotoSOS para ativar a consulta.';return;}
+  const oficinaConsulta=currentOficinaId;
+  const btn=document.getElementById('btnConsultaPlaca');
+  consultaPlacaEmAndamentoMotoSOS=true;btn.disabled=true;btn.textContent='Consultando...';status.textContent='Consultando a Falcon...';
+  try{
+    const response=await fetch(SUPABASE_REST_URL.replace('/rest/v1','')+'/functions/v1/consultar-placa',{
+      method:'POST',headers:{...supabaseHeaders(),'Content-Type':'application/json'},
+      body:JSON.stringify({placa,oficina_id:oficinaConsulta,...credenciaisConsultaPlacaMotoSOS}),signal:AbortSignal.timeout(40000)
+    });
+    const dados=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(dados.erro||'Consulta indisponível. Confira se a função consultar-placa foi publicada no Supabase.');
+    if(String(currentOficinaId)!==String(oficinaConsulta)||!credenciaisConsultaPlacaMotoSOS)return;
+    if(normalizarPlacaMotoSOS(val('motoPlaca'))!==placa){status.textContent='A placa foi alterada durante a consulta. Consulte novamente.';return;}
+    if(normalizarPlacaMotoSOS(dados.placa)!==placa)throw new Error('A resposta não corresponde à placa consultada.');
+    document.getElementById('motoPlaca').value=placa;
+    const faltantes=[];
+    for(const [campo,id] of Object.entries({marca:'motoMarca',modelo:'motoModelo',cor:'motoCor',ano:'motoAno'})){
+      document.getElementById(id).value=dados[campo]||'';if(!dados[campo])faltantes.push(campo);
+    }
+    status.textContent=faltantes.length?'Dados recebidos. Preencha manualmente: '+faltantes.join(', ')+'.':'Dados preenchidos pela Falcon. Confira, selecione o cliente e salve a moto.';
+  }catch(e){status.textContent=e.name==='TimeoutError'?'A consulta demorou demais. Tente mais tarde.':e.message;}
+  finally{consultaPlacaEmAndamentoMotoSOS=false;btn.disabled=false;btn.textContent='Consultar placa';}
 }
 function extrairResultadoPlacaMotoSOS(texto,placaEsperada){
   const linhas=String(texto||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
@@ -4059,8 +4084,8 @@ function updatePlanUI(){
   if(placa) placa.onblur=null;
 
   if(autoBox) autoBox.classList.remove('locked');
-  if(btn) btn.innerText='Abrir consulta da placa';
-  if(note) note.textContent='Abra a consulta, copie o resultado gratuito e cole abaixo para preencher os dados.';
+  if(btn) btn.innerText='Consultar placa';
+  if(note) note.textContent='Consulte a placa para preencher os dados pela Falcon. O plano gratuito tem cota limitada.';
 
   let pai=document.getElementById('planAccessInfo');
   if(pai){
