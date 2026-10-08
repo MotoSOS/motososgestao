@@ -694,15 +694,21 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
           <label>Placa</label>
           <input id="motoPlaca" placeholder="Digite a placa da moto">
           <div class="row" id="placaAutoBox">
-            <button class="blue" onclick="puxarDadosMotoPorPlaca()" id="btnConsultaPlaca">Consulta automática</button>
+            <button class="blue" onclick="puxarDadosMotoPorPlaca()" id="btnConsultaPlaca">Abrir consulta da placa</button>
           </div>
           <div id="placaManualNote" class="manual-note"></div>
+          <details id="placaImportacao"><summary>Colar resultado da consulta</summary>
+            <p class="muted">Na página do resultado, selecione e copie o texto com placa, marca, modelo, cor e ano. Cole abaixo e clique em Preencher dados. Confira os campos antes de salvar.</p>
+            <textarea id="placaResultadoTexto" rows="7" placeholder="Cole aqui o texto do resultado gratuito"></textarea>
+            <button type="button" class="secondary" onclick="importarResultadoPlacaMotoSOS()">Preencher dados</button>
+            <p id="placaImportacaoStatus" role="status" aria-live="polite"></p>
+          </details>
           <label>Marca</label><input id="motoMarca" placeholder="Preencha manualmente">
           <label>Modelo</label><input id="motoModelo" placeholder="Preencha manualmente">
           <label>Cor</label><input id="motoCor" placeholder="Preencha manualmente">
           <label>Ano</label><input id="motoAno" placeholder="Preencha manualmente">
           <label>Cliente</label><select id="motoCliente"></select>
-          <p class="muted">Consulta automática de placa ficará disponível futuramente nos planos Oficina e Pro. Por enquanto, preencha os dados manualmente.</p>
+          <p class="muted">A consulta abre em outra aba. Cole o resultado para preencher os dados e selecione o cliente antes de salvar.</p>
           <div class="row"><button onclick="addMoto()">Salvar moto</button></div>
         </div>
         <div class="card list-card"><h2>Motos cadastradas</h2><table id="motosTable"></table></div>
@@ -3134,14 +3140,44 @@ function cancelClienteEdit(){document.getElementById('editClienteBox').style.dis
 
 
 
-function consultaPlacaLiberada(){return false}
+function consultaPlacaLiberada(){return true}
+function normalizarPlacaMotoSOS(placa){return String(placa||'').toUpperCase().replace(/[^A-Z0-9]/g,'')}
 function puxarDadosMotoPorPlaca(){
-  const key=planKey();
-  if(key==='start'){
-    alert('Consulta automática de placa indisponível no Plano Start. Preencha marca, modelo, cor e ano manualmente.');
-    return;
+  const placa=normalizarPlacaMotoSOS(val('motoPlaca'));
+  if(!/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(placa))return alert('Digite uma placa válida para consultar.');
+  document.getElementById('motoPlaca').value=placa;
+  document.getElementById('placaImportacao').open=true;
+  window.open('https://detetiveveicular.com/checkout/'+encodeURIComponent(placa),'_blank','noopener,noreferrer');
+}
+function extrairResultadoPlacaMotoSOS(texto,placaEsperada){
+  const linhas=String(texto||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const normalizar=x=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const rotulos=['placa','modelo','marca','cor','ano de fabricacao','ano modelo','ano do modelo'];
+  const dados={};
+  for(let i=0;i<linhas.length;i++){
+    const linha=linhas[i], norm=normalizar(linha);
+    for(const rotulo of rotulos){
+      if(norm===rotulo || norm===rotulo+':' || norm.startsWith(rotulo+':') || norm.startsWith(rotulo+'\t')){
+        const valor=linha.slice(rotulo.length).replace(/^[:\s]+/,'').trim() || linhas[i+1] || '';
+        if(valor && !rotulos.includes(normalizar(valor).replace(/:$/,'')))dados[rotulo]=valor;
+      }
+    }
   }
-  alert('Consulta automática de placa em breve para os planos Oficina e Pro. Por enquanto, preencha marca, modelo, cor e ano manualmente.');
+  if(normalizarPlacaMotoSOS(dados.placa)!==normalizarPlacaMotoSOS(placaEsperada))throw new Error('O resultado precisa conter a mesma placa digitada. Copie também o campo Placa.');
+  const ano=dados['ano modelo']||dados['ano do modelo']||dados['ano de fabricacao'];
+  if(!dados.marca||!dados.modelo||!dados.cor||!/^\d{4}$/.test(ano||''))throw new Error('Não foi possível identificar marca, modelo, cor e ano. Copie esses campos junto com os valores ou preencha manualmente.');
+  const marca=dados.marca;
+  const modelo=dados.modelo.toUpperCase().startsWith(marca.toUpperCase()+'/')?dados.modelo.slice(marca.length+1).trim():dados.modelo;
+  return {marca,modelo,cor:dados.cor,ano};
+}
+function importarResultadoPlacaMotoSOS(){
+  const status=document.getElementById('placaImportacaoStatus');
+  try{
+    const dados=extrairResultadoPlacaMotoSOS(val('placaResultadoTexto'),val('motoPlaca'));
+    for(const [campo,id] of Object.entries({marca:'motoMarca',modelo:'motoModelo',cor:'motoCor',ano:'motoAno'}))document.getElementById(id).value=dados[campo];
+    document.getElementById('placaResultadoTexto').value='';
+    status.textContent='Dados preenchidos. Confira as informações e selecione o cliente antes de salvar a moto.';
+  }catch(e){status.textContent=e.message;}
 }
 
 async function addMoto(){
@@ -4022,14 +4058,9 @@ function updatePlanUI(){
   let placa=document.getElementById('motoPlaca');
   if(placa) placa.onblur=null;
 
-  if(key==='start'){
-    if(autoBox) autoBox.classList.add('locked');
-    if(note) note.innerHTML='Consulta automática de placa indisponível no Plano Start. Preencha marca, modelo, cor e ano manualmente.';
-  }else{
-    if(autoBox) autoBox.classList.remove('locked');
-    if(btn) btn.innerText='Consulta automática em breve';
-    if(note) note.innerHTML='Consulta automática de placa em breve para o Plano Pro. Preencha os dados manualmente por enquanto.';
-  }
+  if(autoBox) autoBox.classList.remove('locked');
+  if(btn) btn.innerText='Abrir consulta da placa';
+  if(note) note.textContent='Abra a consulta, copie o resultado gratuito e cole abaixo para preencher os dados.';
 
   let pai=document.getElementById('planAccessInfo');
   if(pai){
