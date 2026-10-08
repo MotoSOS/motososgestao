@@ -3508,6 +3508,20 @@ function cancelEstoqueEdit(){
   renderAll();
 }
 
+let avisoSalvoMotoSOSTimer=null;
+function mostrarSalvoComSucessoMotoSOS(){
+  let aviso=document.getElementById('avisoSalvoMotoSOS');
+  if(!aviso){
+    aviso=document.createElement('div');aviso.id='avisoSalvoMotoSOS';
+    aviso.setAttribute('role','status');aviso.setAttribute('aria-live','polite');
+    aviso.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;background:#15803d;color:#fff;padding:14px 24px;border-radius:10px;box-shadow:0 4px 16px #0004;font:600 16px Arial,sans-serif;max-width:calc(100vw - 32px);text-align:center;pointer-events:none';
+    document.body.appendChild(aviso);
+  }
+  aviso.textContent='Salvo com Sucesso';aviso.style.display='block';
+  clearTimeout(avisoSalvoMotoSOSTimer);
+  avisoSalvoMotoSOSTimer=setTimeout(()=>{aviso.style.display='none';},2000);
+}
+
 async function addEstoque(){
   let editId=val('estoqueEditId');
   let nome=val('estoqueProduto').trim();
@@ -3527,11 +3541,11 @@ async function addEstoque(){
   try{
     if(editId){
       await atualizarEstoqueSupabase(editId,produtoDados);
-      alert('Produto atualizado no Supabase.');
+      mostrarSalvoComSucessoMotoSOS();
       audit('Editou produto '+produtoDados.codigo);
     }else{
       await criarEstoqueSupabase(produtoDados);
-      alert('Produto salvo no Supabase com sucesso.');
+      mostrarSalvoComSucessoMotoSOS();
       audit('Adicionou estoque '+produtoDados.codigo);
     }
     await carregarEstoqueSupabase();
