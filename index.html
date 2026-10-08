@@ -2546,7 +2546,7 @@ async function addCaixaManual(){
     clear(['caixaDesc']);
     const cv=document.getElementById('caixaValor'); if(cv)cv.value=0;
     renderAll();
-    alert('Movimento lançado no caixa.');
+    mostrarSalvoComSucessoMotoSOS();
   }catch(e){
     console.error(e);
     alert('Erro ao lançar no caixa. Confira Console/Network.');
@@ -3067,7 +3067,7 @@ async function addCliente(){
     await criarClienteSupabase(c);
     await carregarClientesSupabase();
     clear(['clienteNome','clienteTelefone','clienteDoc','clienteEmail','clienteCep','clienteEndereco','clienteNumero','clienteBairro','clienteCidade','clienteEstado']);
-    alert('Cliente salvo no Supabase com sucesso.');
+    mostrarSalvoComSucessoMotoSOS();
     audit('Criou cliente '+c.nome);
     renderAll();
   }catch(e){
@@ -3110,7 +3110,7 @@ async function saveClienteEdit(){
     await atualizarClienteSupabase(id,c);
     await carregarClientesSupabase();
     document.getElementById('editClienteBox').style.display='none';
-    alert('Cliente atualizado no Supabase.');
+    mostrarSalvoComSucessoMotoSOS();
     audit('Editou cliente '+c.nome);
     renderAll();
   }catch(e){
@@ -3162,7 +3162,7 @@ async function addMoto(){
     await criarMotoSupabase(m);
     await carregarMotosSupabase();
     clear(['motoPlaca','motoMarca','motoModelo','motoCor','motoAno']);
-    alert('Moto salva no Supabase com sucesso.');
+    mostrarSalvoComSucessoMotoSOS();
     audit('Cadastrou moto '+m.placa);
     renderAll();
   }catch(e){
@@ -3230,7 +3230,7 @@ async function addOS(){
     await carregarOSSupabase();
     clear(['osProblema','osBuscaPlaca']);
     document.getElementById('osDadosEncontrados').innerHTML='Digite uma placa já cadastrada para puxar cliente e moto automaticamente.';
-    alert('O.S. salva no Supabase com sucesso.');
+    mostrarSalvoComSucessoMotoSOS();
     audit('Criou '+o.numero);
     renderAll();
   }catch(e){
@@ -3279,7 +3279,7 @@ async function saveOSEdit(){
     tempEdit=null;
     document.getElementById('editOSBox').style.display='none';
     await carregarOSSupabase();
-    alert('O.S. atualizada no Supabase.');
+    mostrarSalvoComSucessoMotoSOS();
     audit('Editou O.S. '+(db.os[idx]?.numero||id));
     renderAll();
   }catch(e){
@@ -3420,7 +3420,7 @@ async function addVenda(){
     const vpn=document.getElementById('vendaProdutoNome'); if(vpn)vpn.value='';
     const vc=document.getElementById('vendaCliente'); if(vc)vc.value='';
     const vp=document.getElementById('vendaProduto'); if(vp)vp.value='';
-    alert('Venda salva e estoque baixado com sucesso. Agora ela aparecerá no Caixa para pagamento, forma de pagamento e emissão da NF.');
+    mostrarSalvoComSucessoMotoSOS();
     audit('Criou '+v.numero+' e enviou para o caixa');
     renderAll();
   }catch(e){
@@ -3664,7 +3664,7 @@ async function saveFuncionario(){
     await carregarFuncionariosSupabase();
     cancelFuncEdit();
     renderAll();
-    alert('Funcionário salvo no Supabase.');
+    mostrarSalvoComSucessoMotoSOS();
   }catch(e){
     console.error(e);
     alert('Erro ao salvar funcionário. Confira Console/Network.');
@@ -3762,7 +3762,7 @@ async function saveEmpresa(){
       if(!resp.ok)throw new Error(await resp.text());
     }
     audit('Alterou dados da empresa');
-    alert('Dados da empresa salvos com sucesso.');
+    mostrarSalvoComSucessoMotoSOS();
   }catch(e){
     console.error('Erro ao salvar dados da empresa:',e);
     // O salvamento local ja foi feito; avisa caso a sincronizacao online falhe.
@@ -5766,7 +5766,7 @@ addOS=async function(){
     clear(['osProblema','osBuscaPlaca','osDataPrevista','osDataEntrega']);safeSetValue('osDataEntrada',todayISO());
     safeSetValue('osTipoAtendimento','Normal');safeSetValue('osMecanicoResponsavel','');atualizarObrigatoriedadeMecanicoOS();
     document.getElementById('osDadosEncontrados').innerHTML='Digite uma placa já cadastrada para puxar cliente e moto automaticamente.';
-    alert('O.S. salva no Supabase com sucesso.');renderAll();
+    mostrarSalvoComSucessoMotoSOS();renderAll();
   }catch(e){console.error(e);alert('Erro ao salvar O.S. no Supabase.');}
 };
 startEditOS=function(id){
@@ -5801,7 +5801,7 @@ saveOSEdit=async function(){
     await carregarOSSupabase();
     await carregarEstoqueSupabase();
     tempEdit=null;document.getElementById('editOSBox').style.display='none';renderAll();
-    alert('O.S. atualizada.');
+    mostrarSalvoComSucessoMotoSOS();
   }catch(e){console.error(e);alert('Erro ao atualizar O.S.');}
 };
 const _loginV11=login;
