@@ -557,6 +557,15 @@ html.update-resuming #login{display:none!important}
   body:not(.comprovante-mode) #printOS .compact-footer{break-inside:avoid!important;page-break-inside:avoid!important}
   body:not(.comprovante-mode) #printOS .compact-table thead{display:table-header-group!important}
 }
+
+#printOS .os-a4-folha{width:198mm!important;height:277mm!important;min-height:277mm!important;max-height:none!important;display:flex!important;flex-direction:column!important;box-sizing:border-box!important;margin:0 auto 8mm!important;overflow:visible!important}
+.os-a4-folha > :not(.os-a4-conteudo){flex-shrink:0}
+.os-a4-conteudo{flex:1;min-height:0;display:block}
+.os-a4-numeracao{height:6mm;flex:0 0 6mm;box-sizing:border-box;border-top:1px solid #111;padding:1.5mm 3mm;text-align:right;font:10px Arial;color:#111}
+@media print{
+ body:not(.comprovante-mode) #printOS .os-a4-folha{margin:0!important;break-after:page!important;page-break-after:always!important;break-inside:avoid!important;page-break-inside:avoid!important}
+ body:not(.comprovante-mode) #printOS .os-a4-folha:last-child{break-after:auto!important;page-break-after:auto!important}
+}
 </style>
 <script>
 try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentElement.classList.add('update-resuming');}catch(e){}
@@ -5155,6 +5164,7 @@ async function compartilharPDFMotoSOS(){
 function imprimirPaginaMotoSOS(){
   try{
     ajustarComprovanteParaPDFMotoSOS();
+    paginarImpressaoOSMotoSOS();
     window.print();
   }catch(e){
     alert('A impressão não está disponível neste aparelho. Use Salvar PDF para baixar o comprovante.');
@@ -5164,6 +5174,7 @@ function imprimirPaginaMotoSOS(){
 async function imprimirDocumentoMotoSOS(){
   if(gerandoPDFMotoSOS)return;
   const comprovante=document.body.classList.contains('comprovante-mode');
+  if(!comprovante)paginarImpressaoOSMotoSOS();
   const pagina=document.querySelector(comprovante?'.comprovante-pagina':'.os-print-page-compact');
   if(!pagina)return alert('Abra uma O.S. ou um comprovante antes de salvar o PDF.');
   const numero=comprovante?(pagina.querySelector('.comprovante-dados dd')?.textContent||'pagamento'):(pagina.querySelector('.compact-os-box b')?.textContent||'OS');
@@ -5215,21 +5226,14 @@ async function imprimirDocumentoMotoSOS(){
       const largura=Math.min(105,277*canvas.width/canvas.height),altura=largura*canvas.height/canvas.width;
       pdf.addImage(canvas.toDataURL('image/jpeg',0.9),'JPEG',(210-largura)/2,10,largura,altura);
     }else{
-      const largura=190;
-      const limite=Math.floor(277*canvas.width/largura);
-      let inicio=0,paginaPDF=0;
-      while(inicio<canvas.height){
-        let fim=Math.min(canvas.height,inicio+limite);
-        for(const bloco of blocosOSPDF){
-          const topo=Math.floor(bloco.inicio*canvas.width),base=Math.ceil(bloco.fim*canvas.width);
-          if(topo>inicio && topo<fim && base>fim)fim=topo;
-        }
-        if(fim<=inicio)fim=Math.min(canvas.height,inicio+limite);
-        const trecho=document.createElement('canvas');trecho.width=canvas.width;trecho.height=fim-inicio;
-        trecho.getContext('2d').drawImage(canvas,0,inicio,canvas.width,trecho.height,0,0,canvas.width,trecho.height);
-        if(paginaPDF++)pdf.addPage();
-        pdf.addImage(trecho.toDataURL('image/jpeg',0.9),'JPEG',10,10,largura,trecho.height*largura/canvas.width);
-        inicio=fim;
+      const folhas=Array.from(document.querySelectorAll('#printOS .os-a4-folha'));
+      for(let i=0;i<folhas.length;i++){
+        const imagem=i===0?canvas:await window.html2canvas(folhas[i],{
+          scale:1.4,backgroundColor:'#ffffff',useCORS:true,logging:false,imageTimeout:10000,
+          windowWidth:1280,windowHeight:1400
+        });
+        if(i)pdf.addPage();
+        pdf.addImage(imagem.toDataURL('image/jpeg',0.9),'JPEG',6,6,198,277);
       }
     }
     const blob=pdf.output('blob');
@@ -5354,6 +5358,56 @@ function mostrarComprovantePagamentoMotoSOS({tipo,numero,clienteId,motoTexto='',
   showSection('impressao');
 }
 
+
+function paginarImpressaoOSMotoSOS(){
+  if(document.body.classList.contains('comprovante-mode'))return;
+  const raiz=document.getElementById('printOS');
+  const original=raiz?.querySelector('.os-print-page-compact:not(.os-a4-folha)');
+  if(!original)return;
+  const filhos=Array.from(original.children);
+  const inicio=filhos.findIndex(el=>el.querySelector('.compact-table'));
+  if(inicio<0)return;
+  const cabecalho=filhos.slice(0,inicio);
+  const temporario=document.createElement('div');
+  temporario.style.cssText='position:absolute;left:-10000px;top:0;width:198mm;visibility:hidden;background:white';
+  temporario.id='osPaginacaoMedicao';
+  raiz.appendChild(temporario);
+  let folhas=[],folha,conteudo;
+  function novaFolha(){
+    folha=document.createElement('div');folha.className='os-print-page os-print-page-compact os-a4-folha';
+    cabecalho.forEach(el=>folha.appendChild(el.cloneNode(true)));
+    conteudo=document.createElement('div');conteudo.className='os-a4-conteudo';folha.appendChild(conteudo);
+    const rodape=document.createElement('div');rodape.className='os-a4-numeracao';folha.appendChild(rodape);
+    temporario.appendChild(folha);folhas.push(folha);
+  }
+  function excedeu(){return conteudo.scrollHeight>conteudo.clientHeight+1;}
+  novaFolha();
+  for(const bloco of filhos.slice(inicio)){
+    const tabela=bloco.querySelector('.compact-table');
+    if(tabela){
+      let caixa,corpo;
+      function novaTabela(){
+        caixa=bloco.cloneNode(true);const t=caixa.querySelector('table');
+        t.querySelector('tbody').innerHTML='';corpo=t.querySelector('tbody');conteudo.appendChild(caixa);
+      }
+      novaTabela();
+      for(const linha of Array.from(tabela.querySelector('tbody').children)){
+        const copia=linha.cloneNode(true);corpo.appendChild(copia);
+        if(excedeu()){
+          copia.remove();if(!corpo.children.length)caixa.remove();
+          novaFolha();novaTabela();corpo.appendChild(copia);
+        }
+      }
+    }else{
+      const copia=bloco.cloneNode(true);const jaTemConteudo=conteudo.children.length>0;
+      conteudo.appendChild(copia);
+      if(excedeu()&&jaTemConteudo){copia.remove();novaFolha();conteudo.appendChild(copia);}
+    }
+  }
+  folhas.forEach((el,i)=>el.querySelector('.os-a4-numeracao').textContent=`Página ${i+1} de ${folhas.length}`);
+  original.remove();folhas.forEach(el=>raiz.appendChild(el));temporario.remove();
+}
+
 function openPrintOS(id){
   let o=db.os.find(x=>String(x.id)===String(id));
   if(!o)return alert('O.S. não encontrada.');
@@ -5418,7 +5472,7 @@ function openPrintOS(id){
     </div>
     <div class="compact-brand">Moto<span>SOS</span> Gestão para Oficinas</div>
   </div>`;
-  showSection('impressao')
+  showSection('impressao').then(()=>{paginarImpressaoOSMotoSOS();})
 }
 
 
