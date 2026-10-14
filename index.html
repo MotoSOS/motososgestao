@@ -824,7 +824,14 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
           <div><label>Valor de venda em R$</label><input id="estoqueVenda" type="number" step="0.01" placeholder="0,00" oninput="calcularMargemEstoque()"></div>
           <div><label>Lucro sobre o custo</label><input id="estoqueMargem" readonly placeholder="0%"></div>
         </div>
-        <label>Fornecedor</label><input id="estoqueFornecedor">
+        <div class="two">
+          <div><label for="estoqueFornecedor">Fornecedor</label><input id="estoqueFornecedor"></div>
+          <div><label for="estoqueLocalizacao">Localização no estoque</label>
+            <input id="estoqueLocalizacao" list="estoqueLocalizacoesLista" maxlength="60" placeholder="Ex.: P-150 ou E-190" aria-describedby="estoqueLocalizacaoAjuda" onblur="this.value=normalizarLocalizacaoEstoqueMotoSOS(this.value)">
+            <datalist id="estoqueLocalizacoesLista"></datalist>
+            <small id="estoqueLocalizacaoAjuda" class="muted">Selecione um local já usado ou digite um novo código.</small>
+          </div>
+        </div>
         <h3>Dados fiscais para emissão de NF-e</h3>
         <div class="three">
           <div><label>NCM</label><input id="estoqueNcm" placeholder="Ex.: 27101932"></div>
@@ -843,7 +850,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
         </div>
         
         <h3>Controle profissional de estoque</h3>
-        <div class="three"><div><label>Fornecedor principal</label><input id="estoqueFornecedorPrincipal"></div><div><label>Fornecedor secundário</label><input id="estoqueFornecedorSecundario"></div><div><label>Localização</label><input id="estoqueLocalizacao"></div></div>
+        <div class="two"><div><label>Fornecedor principal</label><input id="estoqueFornecedorPrincipal"></div><div><label>Fornecedor secundário</label><input id="estoqueFornecedorSecundario"></div></div>
         <div class="three"><div><label>Corredor</label><input id="estoqueCorredor"></div><div><label>Prateleira</label><input id="estoquePrateleira"></div><div><label>Estoque mínimo</label><input id="estoqueMinimo" type="number" step="0.01"></div></div>
         <div class="three"><div><label>Estoque ideal</label><input id="estoqueIdeal" type="number" step="0.01"></div><div><label>Última compra</label><input id="estoqueUltimaCompra" type="date"></div><div><label>Último fornecedor</label><input id="estoqueUltimoFornecedor"></div></div>
         <div class="row">
@@ -2304,6 +2311,17 @@ async function excluirOSSupabase(id){
 }
 
 
+function normalizarLocalizacaoEstoqueMotoSOS(valor){
+  return String(valor||'').trim().replace(/\s+/g,' ').toUpperCase().slice(0,60);
+}
+function atualizarLocaisEstoqueMotoSOS(){
+  const lista=document.getElementById('estoqueLocalizacoesLista');
+  if(!lista)return;
+  const locais=[...new Set((db.estoque||[]).map(p=>normalizarLocalizacaoEstoqueMotoSOS(p.localizacao)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
+  lista.replaceChildren(...locais.map(local=>{
+    const opcao=document.createElement('option');opcao.value=local;return opcao;
+  }));
+}
 async function carregarEstoqueSupabase(){
   if(!currentOficinaId)return;
   const resp=await fetch(`${SUPABASE_REST_URL}/estoque?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
@@ -2317,6 +2335,7 @@ async function carregarEstoqueSupabase(){
     custo:Number(p.custo||0),
     venda:Number(p.preco_venda||0),
     fornecedor:p.fornecedor||'',
+    localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao),
     ncm:p.ncm||'',cest:p.cest||'',unidade_comercial:p.unidade_comercial||'UN',origem_mercadoria:p.origem_mercadoria||'0',cfop:p.cfop||'',codigo_barras:p.codigo_barras||'',marca:p.marca||'',cst_csosn:p.cst_csosn||'',aliquota_icms:p.aliquota_icms||''
   }));
 }
@@ -2329,6 +2348,7 @@ async function criarEstoqueSupabase(p){
       oficina_id:currentOficinaId,
       codigo:p.codigo||null,
       descricao:p.produto,
+      ...(Object.prototype.hasOwnProperty.call(p,'localizacao')?{localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao)||null}:{}),
       quantidade:Number(p.qtd||0),
       custo:Number(p.custo||0),
       preco_venda:Number(p.venda||0),
@@ -2347,6 +2367,7 @@ async function atualizarEstoqueSupabase(id,p){
     body:JSON.stringify({
       codigo:p.codigo||null,
       descricao:p.produto,
+      ...(Object.prototype.hasOwnProperty.call(p,'localizacao')?{localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao)||null}:{}),
       quantidade:Number(p.qtd||0),
       custo:Number(p.custo||0),
       preco_venda:Number(p.venda||0),
@@ -3534,6 +3555,7 @@ function editEstoque(id){
   document.getElementById('estoqueCusto').value=p.custo ?? '';
   document.getElementById('estoqueVenda').value=p.venda ?? '';
   document.getElementById('estoqueFornecedor').value=p.fornecedor||'';
+  document.getElementById('estoqueLocalizacao').value=normalizarLocalizacaoEstoqueMotoSOS(p.localizacao);
   document.getElementById('estoqueNcm').value=p.ncm||'';
   document.getElementById('estoqueCest').value=p.cest||'';
   document.getElementById('estoqueUnidade').value=p.unidade_comercial||'UN';
@@ -3565,7 +3587,7 @@ function cancelEstoqueEdit(){
   let codEl=document.getElementById('estoqueCodigo');
   if(codEl)codEl.value=proximoCodigoProduto();
   document.getElementById('estoqueEditId').value='';
-  clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor']);
+  clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao']);
   renderAll();
 }
 
@@ -3593,6 +3615,7 @@ async function addEstoque(){
   let produtoDados={
     codigo:val('estoqueCodigo') || proximoCodigoProduto(),
     produto:nome,
+    localizacao:normalizarLocalizacaoEstoqueMotoSOS(val('estoqueLocalizacao')),
     qtd:qtd,
     custo:custo,
     venda:venda,
@@ -3611,13 +3634,14 @@ async function addEstoque(){
     }
     await carregarEstoqueSupabase();
     document.getElementById('estoqueEditId').value='';
-    clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor']);
+    clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao']);
     let codEl=document.getElementById('estoqueCodigo');
     if(codEl)codEl.value=proximoCodigoProduto();
     renderAll();
   }catch(e){
     console.error(e);
-    alert('Erro ao salvar produto no Supabase.');
+    const detalhe=String(e?.message||e);
+    alert(/localizacao|PGRST204/.test(detalhe)?'Execute primeiro o SQL de localização no Supabase do MotoSOS e tente salvar novamente.':'Erro ao salvar produto no Supabase.');
   }
 }
 function addFinanceiro(){db.financeiro.push({id:Date.now(),data:todayISO(),tipo:val('finTipo'),desc:val('finDesc'),valor:Number(val('finValor'))});clear(['finDesc']);document.getElementById('finValor').value=0;audit('Lançou financeiro')}
@@ -4952,9 +4976,10 @@ function renderAll(){
    v.status==='Finalizada'?htmlMotoSOS`<span class="badge green">Pago</span>`:htmlMotoSOS`<span class="badge yellow">Aguardando caixa</span>`,
    v.status==='Finalizada'?htmlMotoSOS`<button class="small blue" onclick="openPrintComprovanteVenda(${v.id},'vendas')">Comprovante</button> <button class="small secondary" onclick="estornarVendaCaixa(${v.id})">Estornar</button>`:htmlMotoSOS`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id});showSection('caixa')">Receber no caixa</button>`
  ]));
- table('estoqueTable',['Código','Produto','Qtd','Custo','Venda','Lucro','NCM','CFOP','Unid.','Fornecedor','Ações'],db.estoque.map(p=>{
+ atualizarLocaisEstoqueMotoSOS();
+ table('estoqueTable',['Código','Produto','Localização','Qtd','Custo','Venda','Lucro','NCM','CFOP','Unid.','Fornecedor','Ações'],db.estoque.map(p=>{
    let margem=(Number(p.custo)>0 && Number(p.venda)>0)?(((Number(p.venda)-Number(p.custo))/Number(p.custo))*100).toFixed(2).replace('.',',')+'%':'-';
-   return [p.codigo,p.produto,p.qtd,money(p.custo),money(p.venda),margem,p.ncm||'-',p.cfop||'-',p.unidade_comercial||'UN',p.fornecedor||'-',htmlMotoSOS`<button class="small blue" onclick="editEstoque(${p.id})">Editar</button> <button class="small secondary" onclick="deleteEstoque(${p.id})">Excluir</button>`]
+   return [p.codigo,p.produto,p.localizacao||'Não informada',p.qtd,money(p.custo),money(p.venda),margem,p.ncm||'-',p.cfop||'-',p.unidade_comercial||'UN',p.fornecedor||'-',htmlMotoSOS`<button class="small blue" onclick="editEstoque(${p.id})">Editar</button> <button class="small secondary" onclick="deleteEstoque(${p.id})">Excluir</button>`]
  }));
  let codEl=document.getElementById('estoqueCodigo');
  if(codEl && !codEl.value) codEl.value=proximoCodigoProduto();
