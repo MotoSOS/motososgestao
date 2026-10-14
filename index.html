@@ -570,6 +570,17 @@ html.update-resuming #login{display:none!important}
 <script>
 try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentElement.classList.add('update-resuming');}catch(e){}
 </script>
+
+<style id="pesquisaEstoqueF2Estilo">
+#pesquisaEstoqueF2{width:min(960px,calc(100vw - 32px));max-height:85vh;padding:24px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--text);box-sizing:border-box}
+#pesquisaEstoqueF2::backdrop{background:#000a}
+#pesquisaEstoqueF2 .f2-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+#pesquisaEstoqueF2 h2{margin:0}
+#pesquisaEstoqueF2 .f2-tabela{overflow:auto;max-height:52vh;margin-top:14px}
+#pesquisaEstoqueF2 table{min-width:640px;width:100%}
+#pesquisaEstoqueF2 th{position:sticky;top:0;background:var(--card)}
+@media print{#pesquisaEstoqueF2{display:none!important}}
+</style>
 </head>
 <body>
 <div id="publicOS" class="public-os-page" style="display:none"></div>
@@ -2859,6 +2870,7 @@ async function login(opcoes={}){
   }
 }
 function logout(){
+  fecharPesquisaEstoqueF2MotoSOS();
   credenciaisConsultaPlacaMotoSOS=null;
   for(const timer of [intervaloConfigComercial,intervaloAvisosAdmin,intervaloAtualizacoesMotoSOS])if(timer)clearInterval(timer);
   intervaloConfigComercial=null;intervaloAvisosAdmin=null;intervaloAtualizacoesMotoSOS=null;
@@ -6142,5 +6154,69 @@ for(const nome of ['addOS','addVenda','saveOSEdit']){
   </div>
 </div>
 
+
+<dialog id="pesquisaEstoqueF2" aria-labelledby="pesquisaEstoqueF2Titulo">
+  <div class="f2-cabecalho"><h2 id="pesquisaEstoqueF2Titulo">Pesquisar estoque · F2</h2><button type="button" class="secondary" onclick="fecharPesquisaEstoqueF2MotoSOS()">Fechar · Esc</button></div>
+  <label for="pesquisaEstoqueF2Busca">Pesquisar item</label>
+  <input id="pesquisaEstoqueF2Busca" placeholder="Nome, código, marca ou localização" autocomplete="off" oninput="renderPesquisaEstoqueF2MotoSOS()">
+  <p id="pesquisaEstoqueF2Status" class="muted" role="status" aria-live="polite"></p>
+  <div class="f2-tabela"><table><thead><tr><th>Código</th><th>Produto</th><th>Marca</th><th>Quantidade</th><th>Valor de venda</th><th>Localização</th></tr></thead><tbody id="pesquisaEstoqueF2Resultados"></tbody></table></div>
+</dialog>
+<script id="pesquisaEstoqueF2Codigo">
+let pesquisaEstoqueF2FocoAnterior=null;
+let pesquisaEstoqueF2Carregando=false;
+let pesquisaEstoqueF2Erro='';
+function filtrarEstoqueF2MotoSOS(itens,consulta){
+  const normalizar=valor=>String(valor??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+  const termos=normalizar(consulta).trim().split(/\s+/).filter(Boolean);
+  return (itens||[]).filter(p=>{
+    const texto=normalizar([p.codigo,p.produto,p.marca,p.codigo_barras,p.localizacao].join(' '));
+    return termos.every(termo=>texto.includes(termo));
+  });
+}
+function renderPesquisaEstoqueF2MotoSOS(){
+  const corpo=document.getElementById('pesquisaEstoqueF2Resultados');
+  if(!corpo)return;
+  const encontrados=filtrarEstoqueF2MotoSOS(db.estoque,document.getElementById('pesquisaEstoqueF2Busca').value);
+  const fragmento=document.createDocumentFragment();
+  for(const p of encontrados.slice(0,200)){
+    const linha=document.createElement('tr');
+    for(const texto of [p.codigo,p.produto,p.marca||'—',Number(p.qtd||0).toLocaleString('pt-BR'),money(p.venda),p.localizacao||'Não informada']){
+      const celula=document.createElement('td');celula.textContent=String(texto??'');linha.appendChild(celula);
+    }
+    fragmento.appendChild(linha);
+  }
+  if(!encontrados.length){const linha=document.createElement('tr'),celula=document.createElement('td');celula.colSpan=6;celula.textContent='Nenhum item encontrado.';linha.appendChild(celula);fragmento.appendChild(linha);}
+  corpo.replaceChildren(fragmento);
+  document.getElementById('pesquisaEstoqueF2Status').textContent=pesquisaEstoqueF2Carregando?'Atualizando estoque...':pesquisaEstoqueF2Erro||`${encontrados.length} ${encontrados.length===1?'item encontrado':'itens encontrados'}${encontrados.length>200?' · Exibindo os primeiros 200. Refine a pesquisa.':''}`;
+}
+async function abrirPesquisaEstoqueF2MotoSOS(){
+  if(!current||!currentOficinaId||!['estoque','vendas','os'].some(id=>sectionAllowed(id)))return;
+  const modal=document.getElementById('pesquisaEstoqueF2');
+  const input=document.getElementById('pesquisaEstoqueF2Busca');
+  if(modal.open){input.focus();input.select();return;}
+  pesquisaEstoqueF2FocoAnterior=document.activeElement;
+  input.value='';pesquisaEstoqueF2Erro='';pesquisaEstoqueF2Carregando=true;
+  modal.showModal();input.focus();renderPesquisaEstoqueF2MotoSOS();
+  try{await carregarEstoqueSupabase();}
+  catch{pesquisaEstoqueF2Erro='Não foi possível atualizar. Exibindo os últimos dados carregados; confira a conexão.';}
+  finally{pesquisaEstoqueF2Carregando=false;if(modal.open)renderPesquisaEstoqueF2MotoSOS();}
+}
+function fecharPesquisaEstoqueF2MotoSOS(){
+  const modal=document.getElementById('pesquisaEstoqueF2');
+  if(modal?.open)modal.close();
+}
+document.getElementById('pesquisaEstoqueF2').addEventListener('close',()=>{
+  document.getElementById('pesquisaEstoqueF2Busca').value='';
+  document.getElementById('pesquisaEstoqueF2Resultados').replaceChildren();
+  if(pesquisaEstoqueF2FocoAnterior?.isConnected)pesquisaEstoqueF2FocoAnterior.focus();
+  pesquisaEstoqueF2FocoAnterior=null;
+});
+document.addEventListener('keydown',event=>{
+  if(event.key!=='F2'||event.ctrlKey||event.altKey||event.metaKey||!current||!currentOficinaId)return;
+  if(!['estoque','vendas','os'].some(id=>sectionAllowed(id)))return;
+  event.preventDefault();if(!event.repeat)void abrirPesquisaEstoqueF2MotoSOS();
+});
+</script>
 </body>
 </html>
