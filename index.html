@@ -843,6 +843,10 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
             <small id="estoqueLocalizacaoAjuda" class="muted">Selecione um local já usado ou digite um novo código.</small>
           </div>
         </div>
+        <label for="estoqueImagemUrl">Link da imagem do produto</label>
+        <input id="estoqueImagemUrl" type="url" maxlength="2048" placeholder="https://exemplo.com/foto-do-produto.jpg" aria-describedby="estoqueImagemAjuda" oninput="atualizarPreviaImagemEstoqueMotoSOS()">
+        <small id="estoqueImagemAjuda" class="muted">Opcional. Cole o link direto de uma imagem pública em HTTPS para exibir no site Rota 95.</small>
+        <div style="margin:10px 0"><img id="estoqueImagemPrevia" alt="Prévia da imagem do produto" referrerpolicy="no-referrer" hidden style="max-width:160px;max-height:140px;object-fit:contain;border-radius:8px" onerror="this.hidden=true;document.getElementById('estoqueImagemStatus').textContent='Não foi possível abrir a imagem. Confira se o link é público e aponta para uma imagem.'"><small id="estoqueImagemStatus" class="muted" role="status"></small></div>
         <h3>Dados fiscais para emissão de NF-e</h3>
         <div class="three">
           <div><label>NCM</label><input id="estoqueNcm" placeholder="Ex.: 27101932"></div>
@@ -2322,6 +2326,21 @@ async function excluirOSSupabase(id){
 }
 
 
+function normalizarImagemEstoqueMotoSOS(valor){
+  const texto=String(valor||'').trim();
+  if(!texto)return '';
+  if(texto.length>2048)throw new Error('O link da imagem deve ter até 2048 caracteres.');
+  try{const url=new URL(texto);if(url.protocol==='https:'&&!url.username&&!url.password)return url.href;}catch{}
+  throw new Error('Use um link direto de imagem começando com https://.');
+}
+function atualizarPreviaImagemEstoqueMotoSOS(){
+  const previa=document.getElementById('estoqueImagemPrevia');
+  const status=document.getElementById('estoqueImagemStatus');
+  if(!previa||!status)return;
+  previa.hidden=true;previa.removeAttribute('src');status.textContent='';
+  try{const url=normalizarImagemEstoqueMotoSOS(val('estoqueImagemUrl'));if(url){previa.src=url;previa.hidden=false;}}
+  catch(e){status.textContent=e.message;}
+}
 function normalizarLocalizacaoEstoqueMotoSOS(valor){
   return String(valor||'').trim().replace(/\s+/g,' ').toUpperCase().slice(0,60);
 }
@@ -2347,6 +2366,7 @@ async function carregarEstoqueSupabase(){
     venda:Number(p.preco_venda||0),
     fornecedor:p.fornecedor||'',
     localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao),
+    imagem_url:p.imagem_url||'',
     ncm:p.ncm||'',cest:p.cest||'',unidade_comercial:p.unidade_comercial||'UN',origem_mercadoria:p.origem_mercadoria||'0',cfop:p.cfop||'',codigo_barras:p.codigo_barras||'',marca:p.marca||'',cst_csosn:p.cst_csosn||'',aliquota_icms:p.aliquota_icms||''
   }));
 }
@@ -2360,6 +2380,7 @@ async function criarEstoqueSupabase(p){
       codigo:p.codigo||null,
       descricao:p.produto,
       ...(Object.prototype.hasOwnProperty.call(p,'localizacao')?{localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao)||null}:{}),
+      ...(Object.prototype.hasOwnProperty.call(p,'imagem_url')?{imagem_url:normalizarImagemEstoqueMotoSOS(p.imagem_url)||null}:{}),
       quantidade:Number(p.qtd||0),
       custo:Number(p.custo||0),
       preco_venda:Number(p.venda||0),
@@ -2379,6 +2400,7 @@ async function atualizarEstoqueSupabase(id,p){
       codigo:p.codigo||null,
       descricao:p.produto,
       ...(Object.prototype.hasOwnProperty.call(p,'localizacao')?{localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao)||null}:{}),
+      ...(Object.prototype.hasOwnProperty.call(p,'imagem_url')?{imagem_url:normalizarImagemEstoqueMotoSOS(p.imagem_url)||null}:{}),
       quantidade:Number(p.qtd||0),
       custo:Number(p.custo||0),
       preco_venda:Number(p.venda||0),
@@ -3568,6 +3590,8 @@ function editEstoque(id){
   document.getElementById('estoqueVenda').value=p.venda ?? '';
   document.getElementById('estoqueFornecedor').value=p.fornecedor||'';
   document.getElementById('estoqueLocalizacao').value=normalizarLocalizacaoEstoqueMotoSOS(p.localizacao);
+  document.getElementById('estoqueImagemUrl').value=p.imagem_url||'';
+  atualizarPreviaImagemEstoqueMotoSOS();
   document.getElementById('estoqueNcm').value=p.ncm||'';
   document.getElementById('estoqueCest').value=p.cest||'';
   document.getElementById('estoqueUnidade').value=p.unidade_comercial||'UN';
@@ -3599,7 +3623,8 @@ function cancelEstoqueEdit(){
   let codEl=document.getElementById('estoqueCodigo');
   if(codEl)codEl.value=proximoCodigoProduto();
   document.getElementById('estoqueEditId').value='';
-  clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao']);
+  clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao','estoqueImagemUrl']);
+  atualizarPreviaImagemEstoqueMotoSOS();
   renderAll();
 }
 
@@ -3624,7 +3649,10 @@ async function addEstoque(){
   let qtd=Number(val('estoqueQtd')||0);
   let custo=Number(val('estoqueCusto')||0);
   let venda=Number(val('estoqueVenda')||0);
+  let imagemUrl='';
+  try{imagemUrl=normalizarImagemEstoqueMotoSOS(val('estoqueImagemUrl'));}catch(e){return alert(e.message);}
   let produtoDados={
+    imagem_url:imagemUrl,
     codigo:val('estoqueCodigo') || proximoCodigoProduto(),
     produto:nome,
     localizacao:normalizarLocalizacaoEstoqueMotoSOS(val('estoqueLocalizacao')),
@@ -3646,14 +3674,15 @@ async function addEstoque(){
     }
     await carregarEstoqueSupabase();
     document.getElementById('estoqueEditId').value='';
-    clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao']);
+    clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao','estoqueImagemUrl']);
+  atualizarPreviaImagemEstoqueMotoSOS();
     let codEl=document.getElementById('estoqueCodigo');
     if(codEl)codEl.value=proximoCodigoProduto();
     renderAll();
   }catch(e){
     console.error(e);
     const detalhe=String(e?.message||e);
-    alert(/localizacao|PGRST204/.test(detalhe)?'Execute primeiro o SQL de localização no Supabase do MotoSOS e tente salvar novamente.':'Erro ao salvar produto no Supabase.');
+    alert(/localizacao|imagem_url|PGRST204/.test(detalhe)?'Execute primeiro o SQL dos campos de estoque no Supabase do MotoSOS e tente salvar novamente.':'Erro ao salvar produto no Supabase.');
   }
 }
 function addFinanceiro(){db.financeiro.push({id:Date.now(),data:todayISO(),tipo:val('finTipo'),desc:val('finDesc'),valor:Number(val('finValor'))});clear(['finDesc']);document.getElementById('finValor').value=0;audit('Lançou financeiro')}
