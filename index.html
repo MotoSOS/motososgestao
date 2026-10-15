@@ -593,6 +593,15 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
 @media(max-width:600px){#janelaEdicaoEstoque .edicao-cabecalho{padding:14px}#janelaEdicaoEstoqueConteudo{padding:0 14px 14px}#janelaEdicaoEstoque #estoqueFormulario>.row:last-child{bottom:-14px}}
 @media print{#janelaEdicaoEstoque{display:none!important}}
 </style>
+
+<style id="pesquisarEstoqueCelularEstilo">
+#pesquisarEstoqueCelular{display:none}
+@media(max-width:850px){
+  #pesquisarEstoqueCelular:not([hidden]){display:inline-flex;align-items:center;justify-content:center;position:fixed;right:14px;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:19;min-height:44px;padding:10px 16px;border-radius:24px;box-shadow:0 4px 16px #0006;font-weight:700;font-size:14px}
+  body.caixa-mode #pesquisarEstoqueCelular{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+}
+@media print{#pesquisarEstoqueCelular{display:none!important}}
+</style>
 </head>
 <body>
 <div id="publicOS" class="public-os-page" style="display:none"></div>
@@ -627,6 +636,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
     <input id="globalSearch" placeholder="Pesquisar cliente, telefone, placa, O.S..." oninput="globalSearch()" style="max-width:440px">
   </header>
   <nav id="mobileBottom" class="mobile-bottom no-print"></nav>
+  <button id="pesquisarEstoqueCelular" type="button" class="no-print" hidden onclick="abrirPesquisaEstoqueF2MotoSOS()" aria-haspopup="dialog" aria-controls="pesquisaEstoqueF2">⌕ Pesquisar estoque</button>
 
   <main class="main">
     <div id="updateSyncNotice" class="hint no-print" style="display:none;margin-bottom:14px" role="status">Alguns dados ainda não foram sincronizados. <button id="updateSyncButton" class="secondary small" onclick="sincronizarDepoisAtualizacaoMotoSOS()">Atualizar dados</button></div>
@@ -5012,6 +5022,8 @@ function iniciarVerificacaoAtualizacoesMotoSOS(){
 
 
 function renderAll(){
+  const buscaEstoqueCelular=document.getElementById('pesquisarEstoqueCelular');
+  if(buscaEstoqueCelular)buscaEstoqueCelular.hidden=!(current&&currentOficinaId&&['estoque','vendas','os'].some(id=>sectionAllowed(id)));
   renderSaldoConta();
   try{renderV31();
   renderFinanceiroFormasV31();}catch(e){console.warn('V31 render:',e);}
