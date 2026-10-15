@@ -581,6 +581,18 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
 #pesquisaEstoqueF2 th{position:sticky;top:0;background:var(--card)}
 @media print{#pesquisaEstoqueF2{display:none!important}}
 </style>
+
+<style id="janelaEdicaoEstoqueEstilo">
+#janelaEdicaoEstoque{width:min(960px,calc(100vw - 24px));max-height:90vh;overflow:auto;padding:0;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);box-sizing:border-box}
+#janelaEdicaoEstoque::backdrop{background:#000a}
+#janelaEdicaoEstoque .edicao-cabecalho{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:16px;background:var(--card);padding:18px 24px;border-bottom:1px solid var(--border)}
+#janelaEdicaoEstoque .edicao-cabecalho h2{margin:0}
+#janelaEdicaoEstoqueConteudo{padding:0 24px 20px}
+#janelaEdicaoEstoque #estoqueFormulario>h2{display:none}
+#janelaEdicaoEstoque #estoqueFormulario>.row:last-child{position:sticky;bottom:-20px;padding:14px 0;background:var(--card);border-top:1px solid var(--border);z-index:1}
+@media(max-width:600px){#janelaEdicaoEstoque .edicao-cabecalho{padding:14px}#janelaEdicaoEstoqueConteudo{padding:0 14px 14px}#janelaEdicaoEstoque #estoqueFormulario>.row:last-child{bottom:-14px}}
+@media print{#janelaEdicaoEstoque{display:none!important}}
+</style>
 </head>
 <body>
 <div id="publicOS" class="public-os-page" style="display:none"></div>
@@ -823,6 +835,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
     <section id="estoque" class="section admin">
       <h1>Estoque</h1>
       <div class="card">
+        <div id="estoqueFormularioOrigem"><div id="estoqueFormulario">
         <h2>Novo produto</h2>
         <input type="hidden" id="estoqueEditId">
         <div class="three">
@@ -872,6 +885,7 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
           <button onclick="addEstoque()">Adicionar/Atualizar produto</button>
           <button class="secondary" onclick="cancelEstoqueEdit()">Cancelar edição</button>
         </div>
+        </div></div>
         <table id="estoqueTable"></table>
       </div>
     </section>
@@ -2892,6 +2906,7 @@ async function login(opcoes={}){
   }
 }
 function logout(){
+  fecharJanelaEdicaoEstoqueMotoSOS(true);
   fecharPesquisaEstoqueF2MotoSOS();
   credenciaisConsultaPlacaMotoSOS=null;
   for(const timer of [intervaloConfigComercial,intervaloAvisosAdmin,intervaloAtualizacoesMotoSOS])if(timer)clearInterval(timer);
@@ -3582,6 +3597,7 @@ function margemEstoqueNumero(custo,venda){
 function editEstoque(id){
   let p=db.estoque.find(x=>String(x.id)===String(id));
   if(!p)return;
+  if(!abrirJanelaEdicaoEstoqueMotoSOS())return;
   document.getElementById('estoqueEditId').value=p.id;
   document.getElementById('estoqueCodigo').value=p.codigo;
   document.getElementById('estoqueProduto').value=p.produto||'';
@@ -3602,6 +3618,7 @@ function editEstoque(id){
   document.getElementById('estoqueCst').value=p.cst_csosn||'';
   document.getElementById('estoqueIcms').value=p.aliquota_icms||'';
   calcularMargemEstoque();
+  document.getElementById('estoqueProduto').focus({preventScroll:true});
 }
 async function deleteEstoque(id){
   let usadoOS=db.os.flatMap(o=>o.pecas||[]).some(p=>String(p.produtoId)===String(id));
@@ -3620,6 +3637,7 @@ async function deleteEstoque(id){
   }
 }
 function cancelEstoqueEdit(){
+  if(document.getElementById('janelaEdicaoEstoque')?.open){fecharJanelaEdicaoEstoqueMotoSOS();return;}
   let codEl=document.getElementById('estoqueCodigo');
   if(codEl)codEl.value=proximoCodigoProduto();
   document.getElementById('estoqueEditId').value='';
@@ -3643,6 +3661,7 @@ function mostrarSalvoComSucessoMotoSOS(){
 }
 
 async function addEstoque(){
+  if(estoqueGravandoMotoSOS)return;
   let editId=val('estoqueEditId');
   let nome=val('estoqueProduto').trim();
   if(!nome)return alert('Produto é obrigatório.');
@@ -3662,6 +3681,8 @@ async function addEstoque(){
     fornecedor:val('estoqueFornecedor'),ncm:val('estoqueNcm'),cest:val('estoqueCest'),unidade_comercial:val('estoqueUnidade')||'UN',origem_mercadoria:val('estoqueOrigem')||'0',cfop:val('estoqueCfop'),codigo_barras:val('estoqueEan'),marca:val('estoqueMarca'),cst_csosn:val('estoqueCst'),aliquota_icms:val('estoqueIcms'),
     percentual_lucro:margemEstoqueNumero(custo,venda)
   };
+  estoqueGravandoMotoSOS=true;
+  document.querySelectorAll('#estoqueFormulario button').forEach(b=>b.disabled=true);
   try{
     if(editId){
       await atualizarEstoqueSupabase(editId,produtoDados);
@@ -3679,10 +3700,14 @@ async function addEstoque(){
     let codEl=document.getElementById('estoqueCodigo');
     if(codEl)codEl.value=proximoCodigoProduto();
     renderAll();
+    if(editId)fecharJanelaEdicaoEstoqueMotoSOS(true);
   }catch(e){
     console.error(e);
     const detalhe=String(e?.message||e);
     alert(/localizacao|imagem_url|PGRST204/.test(detalhe)?'Execute primeiro o SQL dos campos de estoque no Supabase do MotoSOS e tente salvar novamente.':'Erro ao salvar produto no Supabase.');
+  }finally{
+    estoqueGravandoMotoSOS=false;
+    document.querySelectorAll('#estoqueFormulario button').forEach(b=>b.disabled=false);
   }
 }
 function addFinanceiro(){db.financeiro.push({id:Date.now(),data:todayISO(),tipo:val('finTipo'),desc:val('finDesc'),valor:Number(val('finValor'))});clear(['finDesc']);document.getElementById('finValor').value=0;audit('Lançou financeiro')}
@@ -6245,6 +6270,49 @@ document.addEventListener('keydown',event=>{
   if(event.key!=='F2'||event.ctrlKey||event.altKey||event.metaKey||!current||!currentOficinaId)return;
   if(!['estoque','vendas','os'].some(id=>sectionAllowed(id)))return;
   event.preventDefault();if(!event.repeat)void abrirPesquisaEstoqueF2MotoSOS();
+});
+</script>
+
+<dialog id="janelaEdicaoEstoque" aria-labelledby="janelaEdicaoEstoqueTitulo">
+  <div class="edicao-cabecalho"><h2 id="janelaEdicaoEstoqueTitulo">Editar produto do estoque</h2><button class="secondary" type="button" onclick="fecharJanelaEdicaoEstoqueMotoSOS()">Fechar · Esc</button></div>
+  <div id="janelaEdicaoEstoqueConteudo"></div>
+</dialog>
+<script id="janelaEdicaoEstoqueCodigo">
+let estoqueEdicaoRascunhoMotoSOS=null;
+let estoqueEdicaoFocoMotoSOS=null;
+let estoqueEdicaoScrollMotoSOS=0;
+let estoqueGravandoMotoSOS=false;
+function abrirJanelaEdicaoEstoqueMotoSOS(){
+  const modal=document.getElementById('janelaEdicaoEstoque');
+  if(estoqueGravandoMotoSOS)return false;
+  if(modal.open)return true;
+  const formulario=document.getElementById('estoqueFormulario');
+  estoqueEdicaoRascunhoMotoSOS=[...formulario.querySelectorAll('input,select,textarea')].map(el=>({id:el.id,valor:el.value}));
+  estoqueEdicaoFocoMotoSOS=document.activeElement;
+  estoqueEdicaoScrollMotoSOS=window.scrollY;
+  document.getElementById('janelaEdicaoEstoqueConteudo').appendChild(formulario);
+  formulario.querySelector('button[onclick="addEstoque()"]').textContent='Salvar alterações';
+  modal.showModal();modal.scrollTop=0;
+  return true;
+}
+function restaurarFormularioEstoqueMotoSOS(){
+  const formulario=document.getElementById('estoqueFormulario');
+  document.getElementById('estoqueFormularioOrigem').appendChild(formulario);
+  for(const campo of estoqueEdicaoRascunhoMotoSOS||[]){const el=document.getElementById(campo.id);if(el)el.value=campo.valor;}
+  formulario.querySelector('button[onclick="addEstoque()"]').textContent='Adicionar/Atualizar produto';
+  estoqueEdicaoRascunhoMotoSOS=null;
+  atualizarPreviaImagemEstoqueMotoSOS();
+  if(estoqueEdicaoFocoMotoSOS?.isConnected)estoqueEdicaoFocoMotoSOS.focus({preventScroll:true});
+  estoqueEdicaoFocoMotoSOS=null;
+  window.scrollTo({top:estoqueEdicaoScrollMotoSOS,behavior:'instant'});
+}
+function fecharJanelaEdicaoEstoqueMotoSOS(forcar=false){
+  const modal=document.getElementById('janelaEdicaoEstoque');
+  if(estoqueGravandoMotoSOS&&!forcar)return;
+  if(modal?.open){modal.close();restaurarFormularioEstoqueMotoSOS();}
+}
+document.getElementById('janelaEdicaoEstoque').addEventListener('cancel',event=>{
+  event.preventDefault();fecharJanelaEdicaoEstoqueMotoSOS();
 });
 </script>
 </body>
