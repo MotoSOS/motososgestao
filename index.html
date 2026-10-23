@@ -870,6 +870,9 @@ try{if(sessionStorage.getItem('motosos_sessao_atualizacao'))document.documentEle
         <input id="estoqueImagemUrl" type="url" maxlength="2048" placeholder="https://exemplo.com/foto-do-produto.jpg" aria-describedby="estoqueImagemAjuda" oninput="atualizarPreviaImagemEstoqueMotoSOS()">
         <small id="estoqueImagemAjuda" class="muted">Opcional. Cole o link direto de uma imagem pública em HTTPS para exibir no site Rota 95.</small>
         <div style="margin:10px 0"><img id="estoqueImagemPrevia" alt="Prévia da imagem do produto" referrerpolicy="no-referrer" hidden style="max-width:160px;max-height:140px;object-fit:contain;border-radius:8px" onerror="this.hidden=true;document.getElementById('estoqueImagemStatus').textContent='Não foi possível abrir a imagem. Confira se o link é público e aponta para uma imagem.'"><small id="estoqueImagemStatus" class="muted" role="status"></small></div>
+        <h3>Dados para envio — Melhor Envio</h3>
+<p class="muted">Informe o peso e as medidas de uma unidade já embalada. Opcional; para usar no frete, preencha os quatro campos.</p>
+<div class="two"><div><label for="estoqueEnvioPeso">Peso (kg)</label><input id="estoqueEnvioPeso" type="number" min="0.001" step="0.001" inputmode="decimal" placeholder="Ex.: 0,500"></div><div><label for="estoqueEnvioAltura">Altura (cm)</label><input id="estoqueEnvioAltura" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="Ex.: 10"></div><div><label for="estoqueEnvioLargura">Largura (cm)</label><input id="estoqueEnvioLargura" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="Ex.: 10"></div><div><label for="estoqueEnvioComprimento">Comprimento (cm)</label><input id="estoqueEnvioComprimento" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="Ex.: 10"></div></div>
         <h3>Dados fiscais para emissão de NF-e</h3>
         <div class="three">
           <div><label>NCM</label><input id="estoqueNcm" placeholder="Ex.: 27101932"></div>
@@ -2376,6 +2379,14 @@ function atualizarLocaisEstoqueMotoSOS(){
     const opcao=document.createElement('option');opcao.value=local;return opcao;
   }));
 }
+function dadosEnvioEstoqueMotoSOS(p){
+  const campos=['peso_kg','altura_cm','largura_cm','comprimento_cm'];
+  if(!campos.some(k=>Object.prototype.hasOwnProperty.call(p,k)))return {};
+  const valores=campos.map(k=>p[k]==null||String(p[k]).trim()===''?null:Number(String(p[k]).replace(',','.')));
+  if(valores.every(v=>v===null))return Object.fromEntries(campos.map(k=>[k,null]));
+  if(valores.some(v=>!Number.isFinite(v)||v<=0))throw new Error('Para envio, informe peso, altura, largura e comprimento maiores que zero, ou deixe os quatro vazios.');
+  return Object.fromEntries(campos.map((k,i)=>[k,valores[i]]));
+}
 async function carregarEstoqueSupabase(){
   if(!currentOficinaId)return;
   const resp=await fetch(`${SUPABASE_REST_URL}/estoque?oficina_id=eq.${currentOficinaId}&select=*&order=id.desc`,{headers:supabaseHeaders()});
@@ -2391,6 +2402,11 @@ async function carregarEstoqueSupabase(){
     fornecedor:p.fornecedor||'',
     localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao),
     imagem_url:p.imagem_url||'',
+    peso_kg:p.peso_kg ?? null,
+    altura_cm:p.altura_cm ?? null,
+    largura_cm:p.largura_cm ?? null,
+    comprimento_cm:p.comprimento_cm ?? null,
+
     ncm:p.ncm||'',cest:p.cest||'',unidade_comercial:p.unidade_comercial||'UN',origem_mercadoria:p.origem_mercadoria||'0',cfop:p.cfop||'',codigo_barras:p.codigo_barras||'',marca:p.marca||'',cst_csosn:p.cst_csosn||'',aliquota_icms:p.aliquota_icms||''
   }));
 }
@@ -2403,6 +2419,7 @@ async function criarEstoqueSupabase(p){
       oficina_id:currentOficinaId,
       codigo:p.codigo||null,
       descricao:p.produto,
+      ...dadosEnvioEstoqueMotoSOS(p),
       ...(Object.prototype.hasOwnProperty.call(p,'localizacao')?{localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao)||null}:{}),
       ...(Object.prototype.hasOwnProperty.call(p,'imagem_url')?{imagem_url:normalizarImagemEstoqueMotoSOS(p.imagem_url)||null}:{}),
       quantidade:Number(p.qtd||0),
@@ -2423,6 +2440,7 @@ async function atualizarEstoqueSupabase(id,p){
     body:JSON.stringify({
       codigo:p.codigo||null,
       descricao:p.produto,
+      ...dadosEnvioEstoqueMotoSOS(p),
       ...(Object.prototype.hasOwnProperty.call(p,'localizacao')?{localizacao:normalizarLocalizacaoEstoqueMotoSOS(p.localizacao)||null}:{}),
       ...(Object.prototype.hasOwnProperty.call(p,'imagem_url')?{imagem_url:normalizarImagemEstoqueMotoSOS(p.imagem_url)||null}:{}),
       quantidade:Number(p.qtd||0),
@@ -2501,7 +2519,58 @@ async function atualizarVendaSupabase(id,dados){
   });
   if(!resp.ok)throw new Error(await resp.text());
   const arr=await resp.json();
-  return arr[0]||null;
+  if(!arr[0])throw new Error('Venda não localizada ou sem permissão. Atualize a lista antes de receber.');
+  return arr[0];
+}
+
+function vendaPendentePodeExcluirMotoSOS(v){
+  return Boolean(v&&v.status==='Aberta'&&!v.formaPagamento&&!v.pagamentoData&&!v.notaEmitida&&
+    !(db.financeiroOficina||[]).some(f=>String(f.origem||'').toLowerCase()==='venda'&&String(f.origemId)===String(v.id)));
+}
+async function excluirVendaPendenteSupabase(id){
+  oficinaIdAtualObrigatoria();
+  const oficina=currentOficinaId;
+  const codigo=String(id);
+  if(!/^\d+$/.test(codigo))throw new Error('Venda inválida.');
+  await verificarBaixaEstoqueInstalada('vendas');
+  const url=`${SUPABASE_REST_URL}/vendas?id=eq.${encodeURIComponent(codigo)}&oficina_id=eq.${encodeURIComponent(oficina)}`;
+  const consulta=await fetch(url+'&select=id,status,forma_pagamento',{headers:supabaseHeaders(),cache:'no-store'});
+  if(!consulta.ok)throw new Error(await consulta.text());
+  const vendas=await consulta.json();const atual=vendas[0];
+  if(!atual||atual.status!=='Aberta'||atual.forma_pagamento)throw new Error('Esta venda já foi paga, alterada ou excluída. Atualize a lista.');
+  const financeiro=await buscarFinanceiroOficinaPorOrigem('Venda',id);
+  if(financeiro)throw new Error('Esta venda possui histórico de recebimento e não pode ser excluída por esta opção.');
+  if(String(currentOficinaId)!==String(oficina))throw new Error('A sessão da oficina mudou. Entre novamente.');
+  const resposta=await fetch(url+'&status=eq.Aberta&forma_pagamento=is.null',{
+    method:'DELETE',headers:supabaseHeaders({'Prefer':'return=representation'})
+  });
+  if(!resposta.ok)throw new Error(await resposta.text());
+  const apagadas=await resposta.json();
+  if(apagadas.length!==1)throw new Error('A venda não foi excluída: o status mudou ou não há permissão. Atualize a lista.');
+  return apagadas[0];
+}
+const vendasExcluindoMotoSOS=new Set();
+async function excluirVendaPendenteMotoSOS(id){
+  if(!sectionAllowed('vendas')&&!sectionAllowed('caixa'))return alert('Sem permissão para acessar vendas.');
+  const chave=String(id);if(vendasExcluindoMotoSOS.has(chave))return;
+  const v=(db.vendas||[]).find(v=>String(v.id)===chave);
+  if(!vendaPendentePodeExcluirMotoSOS(v))return alert('Apenas vendas abertas e sem histórico de recebimento podem ser excluídas.');
+  if(!confirm(`Excluir a venda pendente ${v.numero}? As peças serão devolvidas ao estoque. Essa exclusão não pode ser desfeita.`))return;
+  vendasExcluindoMotoSOS.add(chave);let excluida=false;
+  try{
+    await excluirVendaPendenteSupabase(id);excluida=true;
+    db.vendas=db.vendas.filter(item=>String(item.id)!==chave);
+    if(String(val('caixaPagamentoVendaId'))===chave)cancelarPagamentoCaixa();
+    audit('Excluiu venda pendente '+v.numero);
+    const resultados=await Promise.allSettled([carregarVendasSupabase(),carregarEstoqueSupabase()]);
+    renderAll();
+    if(resultados.some(r=>r.status==='rejected'))alert('Venda excluída. Reabra o estoque para atualizar as quantidades na tela.');
+    else mostrarSalvoComSucessoMotoSOS();
+  }catch(e){
+    console.error(e);
+    if(excluida)alert('Venda excluída. Atualize a página para recarregar os dados.');
+    else alert('Não foi possível excluir a venda. '+mensagemErroEstoque(e));
+  }finally{vendasExcluindoMotoSOS.delete(chave);}
 }
 
 async function atualizarQuantidadeEstoqueSupabase(produtoId,novaQuantidade){
@@ -3617,6 +3686,11 @@ function editEstoque(id){
   document.getElementById('estoqueFornecedor').value=p.fornecedor||'';
   document.getElementById('estoqueLocalizacao').value=normalizarLocalizacaoEstoqueMotoSOS(p.localizacao);
   document.getElementById('estoqueImagemUrl').value=p.imagem_url||'';
+  document.getElementById('estoqueEnvioPeso').value=p.peso_kg ?? '';
+  document.getElementById('estoqueEnvioAltura').value=p.altura_cm ?? '';
+  document.getElementById('estoqueEnvioLargura').value=p.largura_cm ?? '';
+  document.getElementById('estoqueEnvioComprimento').value=p.comprimento_cm ?? '';
+
   atualizarPreviaImagemEstoqueMotoSOS();
   document.getElementById('estoqueNcm').value=p.ncm||'';
   document.getElementById('estoqueCest').value=p.cest||'';
@@ -3651,7 +3725,7 @@ function cancelEstoqueEdit(){
   let codEl=document.getElementById('estoqueCodigo');
   if(codEl)codEl.value=proximoCodigoProduto();
   document.getElementById('estoqueEditId').value='';
-  clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao','estoqueImagemUrl']);
+  clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao','estoqueImagemUrl','estoqueEnvioPeso','estoqueEnvioAltura','estoqueEnvioLargura','estoqueEnvioComprimento']);
   atualizarPreviaImagemEstoqueMotoSOS();
   renderAll();
 }
@@ -3680,7 +3754,10 @@ async function addEstoque(){
   let venda=Number(val('estoqueVenda')||0);
   let imagemUrl='';
   try{imagemUrl=normalizarImagemEstoqueMotoSOS(val('estoqueImagemUrl'));}catch(e){return alert(e.message);}
+  let envio;
+  try{envio=dadosEnvioEstoqueMotoSOS({peso_kg:val('estoqueEnvioPeso'),altura_cm:val('estoqueEnvioAltura'),largura_cm:val('estoqueEnvioLargura'),comprimento_cm:val('estoqueEnvioComprimento')});}catch(e){return alert(e.message);}
   let produtoDados={
+    ...envio,
     imagem_url:imagemUrl,
     codigo:val('estoqueCodigo') || proximoCodigoProduto(),
     produto:nome,
@@ -3705,7 +3782,7 @@ async function addEstoque(){
     }
     await carregarEstoqueSupabase();
     document.getElementById('estoqueEditId').value='';
-    clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao','estoqueImagemUrl']);
+    clear(['estoqueProduto','estoqueQtd','estoqueCusto','estoqueVenda','estoqueMargem','estoqueFornecedor','estoqueLocalizacao','estoqueImagemUrl','estoqueEnvioPeso','estoqueEnvioAltura','estoqueEnvioLargura','estoqueEnvioComprimento']);
   atualizarPreviaImagemEstoqueMotoSOS();
     let codEl=document.getElementById('estoqueCodigo');
     if(codEl)codEl.value=proximoCodigoProduto();
@@ -5052,7 +5129,7 @@ function renderAll(){
    money(v.total),
    v.formaPagamento||'-',
    v.status==='Finalizada'?htmlMotoSOS`<span class="badge green">Pago</span>`:htmlMotoSOS`<span class="badge yellow">Aguardando caixa</span>`,
-   v.status==='Finalizada'?htmlMotoSOS`<button class="small blue" onclick="openPrintComprovanteVenda(${v.id},'vendas')">Comprovante</button> <button class="small secondary" onclick="estornarVendaCaixa(${v.id})">Estornar</button>`:htmlMotoSOS`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id});showSection('caixa')">Receber no caixa</button>`
+   v.status==='Finalizada'?htmlMotoSOS`<button class="small blue" onclick="openPrintComprovanteVenda(${v.id},'vendas')">Comprovante</button> <button class="small secondary" onclick="estornarVendaCaixa(${v.id})">Estornar</button>`:htmlMotoSOS`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id});showSection('caixa')">Receber no caixa</button> ${vendaPendentePodeExcluirMotoSOS(v)?htmlMotoSOS`<button class="small secondary" onclick="excluirVendaPendenteMotoSOS(${v.id})">Excluir</button>`:''}`
  ]));
  atualizarLocaisEstoqueMotoSOS();
  table('estoqueTable',['Código','Produto','Localização','Qtd','Custo','Venda','Lucro','NCM','CFOP','Unid.','Fornecedor','Ações'],db.estoque.map(p=>{
@@ -5132,7 +5209,7 @@ function renderAll(){
      `${v.produto||'-'}${v.qtd?` | Qtd ${v.qtd}`:''}`,
      money(v.total),
      htmlMotoSOS`<span class="badge yellow">Aguardando pagamento</span>`,
-     htmlMotoSOS`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id})">Receber / NF</button>`
+     htmlMotoSOS`<button class="small green" onclick="iniciarPagamentoCaixa(${v.id})">Receber / NF</button> ${vendaPendentePodeExcluirMotoSOS(v)?htmlMotoSOS`<button class="small secondary" onclick="excluirVendaPendenteMotoSOS(${v.id})">Excluir</button>`:''}`
    ]),
    ...osProntasPendentes.map(o=>[
      htmlMotoSOS`<span class="badge green">O.S.</span>`,
